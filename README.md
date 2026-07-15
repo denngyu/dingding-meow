@@ -22,7 +22,7 @@
 ## 下载
 
 **推荐 · Windows 便携版**
-从 [Releases](https://github.com/denngyu/dingding-meow/releases/latest) 下载 `DingDingMeow-v1.0-windows.zip`，解压到任意目录，双击 `盯盯喵.vbs` 即可（全程无黑窗）。
+从 [Releases](https://github.com/denngyu/dingding-meow/releases/latest) 下载 `DingDingMeow-windows.zip`，解压到任意目录，双击 `盯盯喵.vbs` 即可（全程无黑窗）。
 
 **从源码跑**
 ```
