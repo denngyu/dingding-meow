@@ -5,6 +5,7 @@ import tkinter as tk
 from datetime import datetime, timedelta
 import cat_visual
 import cat_sprites
+import report_icon
 import window_placement
 from cup_detection import decode_cup_boxes, face_focus_region, is_cup_near_face, largest_face, remap_boxes
 from face_detection import detect_face_boxes, load_face_cascades
@@ -469,10 +470,12 @@ def set_autostart(on):
     if on:
         vbs=os.path.join(_self, "盯盯喵.vbs")
         if not os.path.exists(vbs): return False
+        ico=os.path.join(_self, "assets", "dingdingmeow.ico")
+        icon_line=f'\n$l.IconLocation = "{ico}"' if os.path.exists(ico) else ""
         ps=f'''$s = New-Object -ComObject WScript.Shell
 $l = $s.CreateShortcut("{lnk}")
 $l.TargetPath = "{vbs}"
-$l.WorkingDirectory = "{_self}"
+$l.WorkingDirectory = "{_self}"{icon_line}
 $l.Save()'''
         try:
             subprocess.run(["powershell","-NoProfile","-WindowStyle","Hidden","-Command",ps],
@@ -487,16 +490,8 @@ $l.Save()'''
 
 # ─────────── 托盘 ───────────
 def make_tray_icon():
-    im = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    d.polygon([(10, 22), (16, 4), (28, 20)], fill=(184,180,172,255), outline=(88,92,87,255))
-    d.polygon([(36, 20), (48, 4), (54, 22)], fill=(184,180,172,255), outline=(88,92,87,255))
-    d.ellipse([8, 14, 56, 58], fill=(184,180,172,255), outline=(88,92,87,255), width=1)
-    d.ellipse([20, 30, 28, 40], fill=(26,27,24,255))
-    d.ellipse([36, 30, 44, 40], fill=(26,27,24,255))
-    d.polygon([(30, 42), (34, 42), (32, 46)], fill=(232,165,160,255))
-    d.arc([28, 44, 36, 52], 0, 180, fill=(26,27,24,255), width=2)
-    return im
+    """托盘图标复用报告 favicon 的猫头裁剪，保证跨场景视觉一致。"""
+    return report_icon.build_cat_head_image(64)
 
 def start_tray(pet_ref):
     try:
