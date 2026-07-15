@@ -2,6 +2,7 @@
 build/
 dist/
 dist_v13/
+dist_v14/
 dist_v1old/
 *.spec
 build_*.log
@@ -30,6 +31,7 @@ Desktop.ini
 
 # 空目录/临时
 .agents/
+工作记录/*.png
 
 # 发布产物（走 GitHub Releases，不进 repo）
 DingDingMeow-*.zip

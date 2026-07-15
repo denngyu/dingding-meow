@@ -1,3 +1,4 @@
+import re
 import unittest
 from pathlib import Path
 
@@ -34,6 +35,28 @@ class CatSpriteAssetTests(unittest.TestCase):
         promo = (Path(__file__).resolve().parents[1] / "promo.html").read_text(encoding="utf-8")
         self.assertIn('src="assets/cat_sprites/watch.png"', promo)
         self.assertNotIn('<svg class="cat-svg"><use href="#cat"/></svg>', promo)
+
+    def test_promo_camera_preview_uses_a_real_demo_frame(self):
+        root = Path(__file__).resolve().parents[1]
+        promo = (root / "promo.html").read_text(encoding="utf-8")
+
+        self.assertTrue((root / "assets" / "preview_camera.png").exists())
+        self.assertIn(
+            '<img class="camera-demo" src="assets/preview_camera.png"',
+            promo,
+        )
+        self.assertIn('alt="人脸与水杯本地检测演示画面"', promo)
+        self.assertNotIn('<div class="face-box"></div>', promo)
+        self.assertNotIn('<div class="cup-box"></div>', promo)
+
+    def test_promo_stage_is_tall_enough_to_show_the_full_monitor_bubble(self):
+        promo = (Path(__file__).resolve().parents[1] / "promo.html").read_text(
+            encoding="utf-8"
+        )
+        ratio = re.search(r"\.stage\{[^}]*aspect-ratio:1/([0-9.]+)", promo)
+
+        self.assertIsNotNone(ratio)
+        self.assertGreaterEqual(float(ratio.group(1)), 1.30)
 
     def test_display_sprites_have_binary_alpha_for_windows_color_key(self):
         for key, image in cat_sprites.load_sprite_images().items():
