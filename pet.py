@@ -5,6 +5,7 @@ import tkinter as tk
 from datetime import datetime, timedelta
 import cat_visual
 import cat_sprites
+import window_placement
 from cup_detection import decode_cup_boxes, face_focus_region, is_cup_near_face, largest_face, remap_boxes
 from face_detection import detect_face_boxes, load_face_cascades
 from onboarding import should_show_onboarding, show_onboarding as open_onboarding
@@ -127,6 +128,7 @@ STATE={
     "water_reminder_min":load_water_reminder(SETTINGS_PATH),
     "sit_session_start":None, "over_flag":False,
     "paused":False, "locked":False, "_toggle_eyes":False, "_show_onboarding":False, "_quit":False,
+    "_manual_drink":False,
 }
 
 def set_water_reminder(minutes):
@@ -507,6 +509,7 @@ def start_tray(pet_ref):
     def report_item(icon, item): open_report()
     def logs_item(icon, item): open_logs_folder()
     def onboarding_item(icon, item): STATE["_show_onboarding"] = True
+    def manual_drink_item(icon, item): STATE["_manual_drink"] = True
     def interval_menu_item(minutes):
         def select_interval(icon, item):
             if set_water_reminder(minutes):
@@ -522,6 +525,8 @@ def start_tray(pet_ref):
         STATE["_quit"] = True; icon.stop()
     interval_menu=pystray.Menu(*(interval_menu_item(value) for value in WATER_REMINDER_OPTIONS))
     menu = pystray.Menu(
+        pystray.MenuItem("手动记录喝水", manual_drink_item),
+        pystray.Menu.SEPARATOR,
         pystray.MenuItem("看今日报告", report_item),
         pystray.MenuItem("打开日志文件夹", logs_item),
         pystray.MenuItem("新手教程", onboarding_item),
@@ -581,6 +586,7 @@ class Pet:
 
         s._cur_h = s.H_CLOSED
         s._photo = None; s._photo_frame_ref = None; s._dragging = False
+        s._last_screen_check = 0.0
 
         threading.Thread(target=loop, daemon=True).start()
         threading.Thread(target=start_tray, args=(s,), daemon=True).start()
@@ -639,6 +645,8 @@ class Pet:
 
     def _menu_close(s, e):
         m = tk.Menu(s.r, tearoff=0)
+        m.add_command(label="手动记录喝水", command=lambda: s._request_water_dialog(immediate=True))
+        m.add_separator()
         m.add_command(label="看今日报告", command=open_report)
         m.add_command(label="打开日志文件夹", command=open_logs_folder)
         m.add_command(label="新手教程", command=s.show_onboarding)
@@ -707,6 +715,15 @@ class Pet:
         except Exception: pass
         s.r.destroy()
 
+    def _request_water_dialog(s, immediate=False):
+        """收拢的喝水弹窗触发入口。自动检测 immediate=False，走 DRINK_ANIM_SEC 延迟；
+        手动菜单 immediate=True，立刻弹。_drink_dialog_pending 去重防叠开。"""
+        if s._drink_dialog_pending or STATE.get("_quit"):
+            return
+        s._drink_dialog_pending = True
+        delay = 0 if immediate else cat_visual.drink_prompt_delay_ms(DRINK_ANIM_SEC)
+        s.r.after(delay, s._show_water_dialog)
+
     def _show_water_dialog(s):
         s._drink_dialog_pending = False
         if STATE.get("_quit"):
@@ -733,10 +750,22 @@ class Pet:
 
         if STATE["drink"]:
             STATE["drink"] = False
-            if not s._drink_dialog_pending:
-                s._drink_dialog_pending = True
-                delay = cat_visual.drink_prompt_delay_ms(DRINK_ANIM_SEC)
-                s.r.after(delay, s._show_water_dialog)
+            s._request_water_dialog(immediate=False)
+        if STATE.get("_manual_drink"):
+            STATE["_manual_drink"] = False
+            s._request_water_dialog(immediate=True)
+
+        # 多屏切单屏守护：每 2 秒检查一次窗口中心点是否还在某块显示器上；
+        # 副屏拔了 / 分辨率缩小导致中心点悬空 → snap 回主屏右下角。
+        now_ts = time.time()
+        if not s._dragging and now_ts - s._last_screen_check > 2.0:
+            s._last_screen_check = now_ts
+            cur_x, cur_y = s.r.winfo_x(), s.r.winfo_y()
+            if window_placement.needs_reposition(cur_x, cur_y, s.W, s.H_OPEN):
+                sw = s.r.winfo_screenwidth()
+                sh = s.r.winfo_screenheight()
+                nx, ny = window_placement.snap_target(sw, sh, s.W, s.H_OPEN)
+                s.r.geometry("+%d+%d" % (nx, ny))
 
         now = time.monotonic()
         if s.eyes_open and now >= s._blink_next:
