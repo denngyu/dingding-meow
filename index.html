@@ -54,7 +54,7 @@ h1 .sig{color:var(--signal)}
 @media(max-width:880px){.hero-grid{grid-template-columns:1fr;gap:40px}}
 
 /* 演示台 */
-.stage{position:relative;aspect-ratio:1/1.15;background:var(--surface);border:1px solid var(--line-2);padding:22px 22px 22px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;overflow:hidden;box-shadow:0 24px 60px -30px rgba(26,27,24,.28)}
+.stage{position:relative;aspect-ratio:1/1.32;background:var(--surface);border:1px solid var(--line-2);padding:22px 22px 22px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;overflow:hidden;box-shadow:0 24px 60px -30px rgba(26,27,24,.28)}
 .stage::before{content:"";position:absolute;inset:0;opacity:.5;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px}
 .stage>*{position:relative;z-index:1}
 .corner{position:absolute;width:14px;height:14px;z-index:2}.corner::before,.corner::after{content:"";position:absolute;background:var(--signal)}
@@ -71,10 +71,8 @@ h1 .sig{color:var(--signal)}
 @keyframes rise{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 .vid-bubble .vh{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:#8C918B;margin-bottom:6px}
 .vid-bubble .vh .live{color:var(--signal);font-weight:700}
-.vid-bubble .vc{aspect-ratio:4/3;background:linear-gradient(135deg,#2b2c28,#1a1b18);border-radius:7px;position:relative;overflow:hidden}
-.vid-bubble .vc::before{content:"";position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 2px,transparent 2px 4px)}
-.vid-bubble .face-box{position:absolute;left:34%;top:24%;width:34%;height:42%;border:1.5px solid #52c982;border-radius:2px}
-.vid-bubble .cup-box{position:absolute;right:10%;top:40%;width:20%;height:34%;border:1.5px solid #FFA85C;border-radius:2px}
+.vid-bubble .vc{aspect-ratio:4/3;background:#11120f;border-radius:7px;position:relative;overflow:hidden}
+.vid-bubble .camera-demo{display:block;width:100%;height:100%;object-fit:cover}
 .vid-bubble::after{content:"";position:absolute;bottom:-10px;left:calc(50% - 20px);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:11px solid #1A1B18}
 
 /* 文字气泡 (v1.3.1 尺寸: 有按钮) */
@@ -267,10 +265,9 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
     <div class="stage-tag">DESKTOP</div>
 
     <div class="vid-bubble">
-      <div class="vh"><span class="live">● LIVE</span><span>CAM 0</span></div>
+      <div class="vh"><span class="live">● 低频预览</span><span>省 CPU</span></div>
       <div class="vc">
-        <div class="face-box"></div>
-        <div class="cup-box"></div>
+        <img class="camera-demo" src="assets/preview_camera.png" alt="人脸与水杯本地检测演示画面" width="480" height="360">
       </div>
     </div>
 
