@@ -1,0 +1,20 @@
+# 二进制文件禁止 LF/CRLF 转换
+*.vbs binary
+*.png binary
+*.weights binary
+*.exe binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.pyc binary
+
+# 中文文本文件明确 UTF-8
+*.md text working-tree-encoding=UTF-8 eol=lf
+*.py text working-tree-encoding=UTF-8 eol=lf
+*.html text working-tree-encoding=UTF-8 eol=lf
+*.css text working-tree-encoding=UTF-8 eol=lf
+*.js text working-tree-encoding=UTF-8 eol=lf
+*.json text working-tree-encoding=UTF-8 eol=lf
+*.txt text working-tree-encoding=UTF-8 eol=lf

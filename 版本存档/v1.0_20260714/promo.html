@@ -1,0 +1,100 @@
+﻿<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>本地之眼 · 盯你健康的桌面小猫</title>
+<style>
+:root{--canvas:#F5F5F2;--surface:#FFFFFF;--surface-2:#EDEDE8;--ink:#1A1B18;--ink-2:#585C57;--ink-3:#8C918B;
+--signal:#C15A34;--signal-2:#A54A28;--signal-soft:#F2E6DF;--line:#E7E6E0;--line-2:#D9D8D0;--rec:#D8443A;--good:#2F6E54;
+--sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}
+@media(prefers-color-scheme:dark){:root{--canvas:#131412;--surface:#1B1C19;--surface-2:#222320;--ink:#EDEDE8;--ink-2:#9BA098;--ink-3:#666B64;--signal:#DE7A4F;--signal-2:#E88C60;--signal-soft:#2A2018;--line:#282A26;--line-2:#33352F;--rec:#E45B4D;--good:#4EA37B;}}
+*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--canvas);color:var(--ink);line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}.wrap{max-width:1120px;margin:0 auto;padding:0 40px}
+@media(max-width:600px){.wrap{padding:0 24px}}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--signal);font-weight:600;display:inline-flex;align-items:center;gap:9px}
+.eyebrow::before{content:"";width:20px;height:1px;background:var(--signal);opacity:.7}
+nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--canvas) 82%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:650;font-size:15.5px}
+.brand .eye{width:20px;height:20px;border:1.5px solid var(--ink);border-radius:50%;position:relative}
+.brand .eye::after{content:"";position:absolute;inset:5px;background:var(--signal);border-radius:50%}
+.nav-links{display:flex;gap:28px;font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+.nav-links a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;font-weight:600;padding:10px 17px;cursor:pointer;border:1px solid var(--signal);background:var(--signal);color:#fff;transition:.18s}
+.btn:hover{background:var(--signal-2);border-color:var(--signal-2)}
+@media(max-width:760px){.nav-links{display:none}}
+.hero{padding:96px 0 84px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;top:-10%;right:-5%;width:60%;height:90%;z-index:0;background:radial-gradient(ellipse at 70% 30%,color-mix(in srgb,var(--signal) 14%,transparent),transparent 62%);opacity:.5;filter:blur(10px)}
+.hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1.04fr .96fr;gap:64px;align-items:center}
+h1{font-size:clamp(38px,5.6vw,56px);line-height:1.07;font-weight:800;letter-spacing:-.035em;margin:24px 0 22px}
+h1 .sig{color:var(--signal)}.sub{font-size:18px;color:var(--ink-2);max-width:480px;margin-bottom:32px}
+.stat-strip{display:flex;margin-top:38px;border:1px solid var(--line);background:var(--surface);width:fit-content;flex-wrap:wrap}
+.stat-strip div{padding:12px 18px;border-right:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+.stat-strip div:last-child{border-right:none}.stat-strip b{color:var(--ink)}
+@media(max-width:880px){.hero-grid{grid-template-columns:1fr;gap:44px}}
+.finder{position:relative;aspect-ratio:4/3;background:var(--surface);border:1px solid var(--line-2);padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 24px 60px -30px rgba(26,27,24,.28)}
+.finder::before{content:"";position:absolute;inset:0;opacity:.6;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:36px 36px}
+.finder>*{position:relative;z-index:1}
+.corner{position:absolute;width:15px;height:15px;z-index:2}.corner::before,.corner::after{content:"";position:absolute;background:var(--signal)}
+.corner::before{width:15px;height:2px}.corner::after{width:2px;height:15px}
+.tl{top:10px;left:10px}.tr{top:10px;right:10px}.tr::before{right:0}.tr::after{right:0}.bl{bottom:10px;left:10px}.bl::before{bottom:0}.bl::after{bottom:0}.br{bottom:10px;right:10px}.br::before{right:0;bottom:0}.br::after{right:0;bottom:0}
+.fd-top{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+.rec{width:8px;height:8px;border-radius:50%;background:var(--rec);animation:blink 2.4s infinite}@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.catface{text-align:center;font-family:var(--mono);font-size:30px;color:var(--good);margin:6px 0}
+.hud{display:flex;justify-content:space-between;background:color-mix(in srgb,var(--canvas) 70%,transparent);border:1px solid var(--line);padding:10px 13px;margin-bottom:7px}
+.hud .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--ink-3)}.hud .v{font-weight:700;font-size:13px}
+.fd-bot{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);text-align:center}
+section.block{padding:88px 0}.sec-head{max-width:600px;margin-bottom:44px}
+.h2{font-size:31px;font-weight:800;letter-spacing:-.025em;margin:12px 0 14px}.lead{font-size:16.5px;color:var(--ink-2)}
+.grid4{display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--line)}
+.cell{padding:30px 26px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface)}
+.cell:nth-child(2n){border-right:none}.cell:nth-child(n+3){border-bottom:none}
+.cell .em{font-size:22px;font-family:var(--mono)}.cell h3{font-size:18px;font-weight:700;margin:12px 0 8px}.cell p{font-size:14px;color:var(--ink-2)}
+@media(max-width:720px){.grid4{grid-template-columns:1fr}.cell{border-right:none!important}.cell:nth-child(3){border-bottom:1px solid var(--line)}}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.step{border-top:2px solid var(--ink);padding-top:16px}.step .n{font-family:var(--mono);font-size:11.5px;color:var(--signal);font-weight:700}
+.step h4{font-size:16px;font-weight:700;margin:8px 0 7px}.step p{font-size:14px;color:var(--ink-2)}.step code{font-family:var(--mono);background:var(--surface);border:1px solid var(--line);padding:2px 6px;font-size:12px;color:var(--signal-2)}
+@media(max-width:720px){.steps{grid-template-columns:1fr}}
+.specs{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line)}
+.spec{padding:28px 22px;border-right:1px solid var(--line);background:var(--surface)}.spec:last-child{border-right:none}
+.spec .n{font-size:30px;font-weight:800;font-family:var(--mono);letter-spacing:-.03em}.spec .n em{font-size:14px;font-style:normal;color:var(--ink-3)}.spec .l{font-size:12px;color:var(--ink-2);margin-top:8px}
+@media(max-width:720px){.specs{grid-template-columns:1fr 1fr}.spec:nth-child(2){border-right:none}}
+.cta-block{background:var(--ink);color:var(--canvas);padding:60px 44px;text-align:center}
+.cta-block h2{font-size:30px;font-weight:800;margin:14px 0 12px;color:var(--canvas)}.cta-block p{opacity:.72;margin-bottom:22px}
+footer{padding:36px 0;border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--ink-3);text-align:center}
+</style></head><body>
+<nav><div class="wrap nav-in"><div class="brand"><span class="eye"></span>本地之眼</div>
+<div class="nav-links"><a href="#f">功能</a><a href="#how">怎么用</a><a href="#s">数据</a></div>
+<button class="btn" onclick="document.getElementById('how').scrollIntoView()">开始使用</button></div></nav>
+<header class="hero"><div class="wrap hero-grid"><div>
+<span class="eyebrow">Local-only · 桌面小猫</span>
+<h1>一只桌面小猫,<br>替你盯住<span class="sig">久坐、离座和喝水</span></h1>
+<p class="sub">它蹲在屏幕角落,看你坐了多久、离开多久、有没有喝水;坐太久就冲你生气,喝口水它帮你记一笔。画面一帧都不离开这台电脑。</p>
+<button class="btn" onclick="document.getElementById('how').scrollIntoView()">▶ 开始使用</button>
+<div class="stat-strip"><div>🔒 <b>纯本地</b></div><div>CPU <b>低占用</b></div><div>联网 <b>0</b></div><div><b>免费</b></div></div>
+</div><div class="finder"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+<div class="fd-top"><span class="rec"></span>REC · LOCAL</div>
+<div class="catface">( ^ω^ )</div>
+<div><div class="hud"><span class="k">SUBJECT</span><span class="v" style="color:var(--good)">在座</span></div>
+<div class="hud"><span class="k">SITTING</span><span class="v">32 分钟</span></div>
+<div class="hud"><span class="k">WATER TODAY</span><span class="v" style="color:var(--signal)">800 ml</span></div></div>
+<div class="fd-bot">CAM0 · 640×480 · 桌面浮窗</div></div></div></header>
+<section class="block" id="f"><div class="wrap"><div class="sec-head"><span class="eyebrow">四件事,一只猫全管</span><div class="h2">它在桌角,替你留意健康</div></div>
+<div class="grid4">
+<div class="cell"><div class="em">( >Д&lt; )!</div><h3>久坐提醒</h3><p>连续坐太久,小猫生气、抖动,催你起来动动。你真起身走开,它立刻改口不再念叨。</p></div>
+<div class="cell"><div class="em">( -ω-)zzZ</div><h3>离座计时</h3><p>你一走开就开始计时,回来告诉你"离开了几分几秒",都记进当天日志。</p></div>
+<div class="cell"><div class="em">( ^ω^ )旦</div><h3>喝水记录</h3><p>认出你举杯喝水,弹窗一点就记(一口/半杯/一杯/一瓶),累计每日饮水量。</p></div>
+<div class="cell"><div class="em">▸ 👁</div><h3>桌面萌宠 + 预览</h3><p>颜文字小猫情绪随状态变;想看它眼里的画面,点一下展开摄像头预览(带检测框),不看就收起。</p></div>
+</div></div></section>
+<section class="block" id="how" style="background:var(--surface-2)"><div class="wrap"><div class="sec-head"><span class="eyebrow">怎么用 · 三步</span><div class="h2">双击就活,没有黑窗</div></div>
+<div class="steps"><div class="step"><div class="n">STEP 01</div><h4>装好环境</h4><p>装 Python 和依赖:<br><code>pip install opencv-python==4.10.0.84 pillow</code></p></div>
+<div class="step"><div class="n">STEP 02</div><h4>双击启动</h4><p>双击 <code>宠物浮窗.vbs</code>,小猫直接出现在桌角,全程无黑窗。</p></div>
+<div class="step"><div class="n">STEP 03</div><h4>就这样</h4><p>它自己看着你。右键小猫可关闭;开视频会议前先关掉,免得抢摄像头。</p></div></div></div></section>
+<section class="block" id="s"><div class="wrap"><div class="sec-head"><span class="eyebrow">实测</span><div class="h2">真跑出来的,不是宣传话</div></div>
+<div class="specs"><div class="spec"><div class="n">0<em>次</em></div><div class="l">联网 / 上传</div></div>
+<div class="spec"><div class="n">100<em>%</em></div><div class="l">本地处理</div></div>
+<div class="spec"><div class="n">1<em>秒</em></div><div class="l">检测间隔</div></div>
+<div class="spec"><div class="n">4<em>合1</em></div><div class="l">久坐·离座·喝水·萌宠</div></div></div></div></section>
+<section class="block" style="padding-top:20px"><div class="wrap"><div class="cta-block"><span class="eyebrow" style="color:var(--signal)">Take it back</span>
+<h2>把摄像头,变成桌角的小伙伴</h2><p>不监控你、不卖你数据,只安安静静替你盯住健康那点事。</p>
+<button class="btn" onclick="document.getElementById('how').scrollIntoView()">▶ 现在开始</button></div></div></section>
+<footer>本地之眼 / LOCAL-EYE · 久坐 + 离座 + 喝水 · 画面不出你的电脑</footer>
+</body></html>

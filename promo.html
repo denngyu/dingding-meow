@@ -1,0 +1,410 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>盯盯喵 · 盯你健康的桌面小猫</title>
+<style>
+:root{
+--canvas:#F5F5F2;--surface:#FFFFFF;--surface-2:#EDEDE8;
+--ink:#1A1B18;--ink-2:#585C57;--ink-3:#8C918B;
+--signal:#C15A34;--signal-2:#A54A28;--signal-soft:#F2E6DF;
+--line:#E7E6E0;--line-2:#D9D8D0;
+--rec:#D8443A;--good:#2F6E54;
+--fur:#B8B4AC;--fur-dark:#8A867E;--fur-light:#F0EDE5;--nose:#F0A5A0;--cheek:#F5B8B2;
+--cup:#B0DDF0;--water:#4A9DC7;
+--sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;
+--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+--canvas:#131412;--surface:#1B1C19;--surface-2:#222320;
+--ink:#EDEDE8;--ink-2:#9BA098;--ink-3:#666B64;
+--signal:#DE7A4F;--signal-2:#E88C60;--signal-soft:#2A2018;
+--line:#282A26;--line-2:#33352F;
+--rec:#E45B4D;--good:#4EA37B;
+--fur:#A5A199;--fur-dark:#6E6B64;--fur-light:#403D37;--nose:#C77873;--cheek:#8A4E4A;
+--cup:#4A6A78;--water:#2A5568;
+}}
+*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--canvas);color:var(--ink);line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}.wrap{max-width:1120px;margin:0 auto;padding:0 40px}
+@media(max-width:600px){.wrap{padding:0 22px}}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--signal);font-weight:600;display:inline-flex;align-items:center;gap:9px}
+.eyebrow::before{content:"";width:20px;height:1px;background:var(--signal);opacity:.7}
+
+nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--canvas) 82%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:650;font-size:15.5px}
+.brand-cat{width:28px;height:28px}
+.brand-cat svg{width:100%;height:100%;display:block}
+.nav-links{display:flex;gap:26px;font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+.nav-links a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;font-weight:600;padding:10px 17px;cursor:pointer;border:1px solid var(--signal);background:var(--signal);color:#fff;transition:.18s}
+.btn:hover{background:var(--signal-2);border-color:var(--signal-2)}
+.btn-ghost{background:transparent;color:var(--ink)}
+.btn-ghost:hover{background:var(--surface-2)}
+@media(max-width:760px){.nav-links{display:none}}
+
+.hero{padding:96px 0 84px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;top:-10%;right:-5%;width:60%;height:90%;z-index:0;background:radial-gradient(ellipse at 70% 30%,color-mix(in srgb,var(--signal) 14%,transparent),transparent 62%);opacity:.5;filter:blur(10px)}
+.hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+h1{font-size:clamp(38px,5.6vw,54px);line-height:1.07;font-weight:800;letter-spacing:-.035em;margin:22px 0 20px}
+h1 .sig{color:var(--signal)}
+.sub{font-size:17px;color:var(--ink-2);max-width:480px;margin-bottom:30px}
+.hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
+.stat-strip{display:flex;margin-top:34px;border:1px solid var(--line);background:var(--surface);width:fit-content;flex-wrap:wrap}
+.stat-strip div{padding:11px 17px;border-right:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+.stat-strip div:last-child{border-right:none}.stat-strip b{color:var(--ink)}
+@media(max-width:880px){.hero-grid{grid-template-columns:1fr;gap:40px}}
+
+/* 演示台 */
+.stage{position:relative;aspect-ratio:1/1.15;background:var(--surface);border:1px solid var(--line-2);padding:22px 22px 22px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;overflow:hidden;box-shadow:0 24px 60px -30px rgba(26,27,24,.28)}
+.stage::before{content:"";position:absolute;inset:0;opacity:.5;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px}
+.stage>*{position:relative;z-index:1}
+.corner{position:absolute;width:14px;height:14px;z-index:2}.corner::before,.corner::after{content:"";position:absolute;background:var(--signal)}
+.corner::before{width:14px;height:2px}.corner::after{width:2px;height:14px}
+.tl{top:10px;left:10px}.tr{top:10px;right:10px}.tr::before{right:0}.tr::after{right:0}.bl{bottom:10px;left:10px}.bl::before{bottom:0}.bl::after{bottom:0}.br{bottom:10px;right:10px}.br::before{right:0;bottom:0}.br::after{right:0;bottom:0}
+
+.stage-label{position:absolute;top:16px;left:22px;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.08em;display:flex;align-items:center;gap:8px;z-index:3}
+.stage-label .dot{width:6px;height:6px;border-radius:50%;background:var(--signal);animation:blink 2.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.stage-tag{position:absolute;top:16px;right:22px;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.08em;z-index:3}
+
+/* 视频气泡 */
+.vid-bubble{position:relative;width:70%;max-width:270px;background:#1A1B18;border-radius:14px;padding:11px 12px;margin-bottom:8px;box-shadow:0 10px 24px -12px rgba(0,0,0,.4);animation:rise 3s ease-in-out infinite}
+@keyframes rise{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.vid-bubble .vh{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:#8C918B;margin-bottom:6px}
+.vid-bubble .vh .live{color:var(--signal);font-weight:700}
+.vid-bubble .vc{aspect-ratio:4/3;background:linear-gradient(135deg,#2b2c28,#1a1b18);border-radius:7px;position:relative;overflow:hidden}
+.vid-bubble .vc::before{content:"";position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 2px,transparent 2px 4px)}
+.vid-bubble .face-box{position:absolute;left:34%;top:24%;width:34%;height:42%;border:1.5px solid #52c982;border-radius:2px}
+.vid-bubble .cup-box{position:absolute;right:10%;top:40%;width:20%;height:34%;border:1.5px solid #FFA85C;border-radius:2px}
+.vid-bubble::after{content:"";position:absolute;bottom:-10px;left:calc(50% - 20px);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:11px solid #1A1B18}
+
+/* 文字气泡 (v1.3.1 尺寸: 有按钮) */
+.txt-bubble{position:relative;background:var(--surface);border:1.4px solid var(--line-2);border-radius:14px;padding:14px 18px 12px;margin-bottom:12px;width:74%;max-width:290px;text-align:center;box-shadow:0 4px 12px -6px rgba(0,0,0,.08)}
+.txt-bubble .m1{font-size:14px;font-weight:600;color:var(--ink)}
+.txt-bubble .m2{font-size:12px;color:var(--ink-2);margin-top:3px;font-family:var(--mono)}
+.txt-bubble .m3{font-size:12px;color:var(--signal);margin-top:3px;font-weight:600}
+.txt-bubble .btns{display:flex;gap:8px;justify-content:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.txt-bubble .btn-s{font-family:var(--sans);font-size:11px;padding:5px 12px;border-radius:6px;cursor:default;font-weight:600}
+.txt-bubble .btn-log{background:var(--signal-soft);color:var(--ink);border:1px solid var(--signal)}
+.txt-bubble .btn-rep{background:var(--signal);color:#fff}
+.txt-bubble::after{content:"";position:absolute;bottom:-9px;left:calc(50% - 20px);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid var(--line-2)}
+.txt-bubble::before{content:"";position:absolute;bottom:-7px;left:calc(50% - 20px);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid var(--surface);z-index:2}
+
+/* 图片猫：与桌面端共用同一套角色素材 */
+.cat-sprite{width:180px;height:180px;object-fit:contain;filter:drop-shadow(0 6px 12px rgba(0,0,0,.14));animation:cat-breathe 3.8s ease-in-out infinite}
+@keyframes cat-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@media (prefers-reduced-motion:reduce){.cat-sprite{animation:none}}
+
+/* 各 section */
+section.block{padding:82px 0}
+.sec-head{max-width:640px;margin-bottom:38px}
+.h2{font-size:30px;font-weight:800;letter-spacing:-.025em;margin:12px 0 12px}
+.lead{font-size:16px;color:var(--ink-2)}
+
+/* 功能网格 6 张 3x2 */
+.grid6{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line)}
+.cell{padding:26px 22px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface)}
+.cell:nth-child(3n){border-right:none}
+.cell:nth-child(n+4){border-bottom:none}
+.cell .em{font-size:22px;font-family:var(--mono);color:var(--signal);font-weight:700}
+.cell h3{font-size:16.5px;font-weight:700;margin:10px 0 7px}
+.cell p{font-size:13.5px;color:var(--ink-2)}
+@media(max-width:900px){.grid6{grid-template-columns:repeat(2,1fr)}.cell:nth-child(3n){border-right:1px solid var(--line)}.cell:nth-child(2n){border-right:none}.cell:nth-child(n+4){border-bottom:1px solid var(--line)}.cell:nth-child(n+5){border-bottom:none}}
+@media(max-width:560px){.grid6{grid-template-columns:1fr}.cell{border-right:none!important}.cell:nth-child(n+2){border-bottom:1px solid var(--line)}.cell:last-child{border-bottom:none}}
+
+/* 报告预览 section */
+.report-preview{background:var(--surface);border:1px solid var(--line);padding:26px;border-radius:8px;box-shadow:0 12px 32px -18px rgba(26,27,24,.16)}
+.rp-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.rp-title{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.rp-hint{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.rp-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.rp-card{padding:14px;border:1px solid var(--line);border-radius:6px;background:var(--canvas)}
+.rp-card .k{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase}
+.rp-card .v{font-size:22px;font-weight:800;margin-top:5px;letter-spacing:-.02em}
+.rp-card .u{font-size:11px;color:var(--ink-3);font-weight:400}
+.rp-card .p{height:5px;background:var(--line);border-radius:3px;margin-top:8px;overflow:hidden}
+.rp-card .p span{display:block;height:100%;background:var(--signal)}
+.rp-chart{background:var(--canvas);border:1px solid var(--line);padding:16px;border-radius:6px}
+.rp-chart-title{font-size:12.5px;font-weight:700;margin-bottom:10px;color:var(--ink-2)}
+@media(max-width:640px){.rp-cards{grid-template-columns:repeat(2,1fr)}}
+
+/* 三步 */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.step{border-top:2px solid var(--ink);padding-top:14px}
+.step .n{font-family:var(--mono);font-size:11.5px;color:var(--signal);font-weight:700}
+.step h4{font-size:16px;font-weight:700;margin:6px 0 6px}
+.step p{font-size:13.5px;color:var(--ink-2)}
+.step code{font-family:var(--mono);background:var(--surface);border:1px solid var(--line);padding:2px 6px;font-size:11.5px;color:var(--signal-2)}
+@media(max-width:720px){.steps{grid-template-columns:1fr}}
+
+/* Specs */
+.specs{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line)}
+.spec{padding:26px 20px;border-right:1px solid var(--line);background:var(--surface)}
+.spec:last-child{border-right:none}
+.spec .n{font-size:28px;font-weight:800;font-family:var(--mono);letter-spacing:-.03em}
+.spec .n em{font-size:13px;font-style:normal;color:var(--ink-3)}
+.spec .l{font-size:12px;color:var(--ink-2);margin-top:6px}
+@media(max-width:720px){.specs{grid-template-columns:1fr 1fr}.spec:nth-child(2){border-right:none}}
+
+.cta-block{background:var(--ink);color:var(--canvas);padding:56px 40px;text-align:center}
+.cta-block h2{font-size:28px;font-weight:800;margin:14px 0 12px;color:var(--canvas)}
+.cta-block p{opacity:.72;margin-bottom:20px}
+footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--ink-3);text-align:center}
+</style></head><body>
+
+<!-- v1.3 版可爱猫 SVG（大头/小身/大眼/腮红） -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<symbol id="cat" viewBox="0 0 200 220">
+  <!-- 尾巴（画在身体后） -->
+  <path class="tail" d="M 130 148 Q 175 148 175 108 Q 175 76 140 82"
+        fill="none" stroke="var(--fur)" stroke-width="12" stroke-linecap="round"/>
+  <!-- 身体 -->
+  <ellipse cx="100" cy="158" rx="42" ry="34" fill="var(--fur)" stroke="var(--fur-dark)" stroke-width="1.2"/>
+  <!-- 胸口浅色围兜 -->
+  <ellipse cx="100" cy="160" rx="26" ry="28" fill="var(--fur-light)"/>
+  <!-- 前爪 -->
+  <ellipse cx="82" cy="188" rx="12" ry="7" fill="var(--fur-light)" stroke="var(--fur-dark)" stroke-width="1"/>
+  <ellipse cx="118" cy="188" rx="12" ry="7" fill="var(--fur-light)" stroke="var(--fur-dark)" stroke-width="1"/>
+  <!-- 肉垫 -->
+  <circle cx="76" cy="189" r="1.3" fill="var(--nose)"/><circle cx="82" cy="190" r="1.3" fill="var(--nose)"/><circle cx="88" cy="189" r="1.3" fill="var(--nose)"/>
+  <circle cx="112" cy="189" r="1.3" fill="var(--nose)"/><circle cx="118" cy="190" r="1.3" fill="var(--nose)"/><circle cx="124" cy="189" r="1.3" fill="var(--nose)"/>
+
+  <!-- 头（大而圆） -->
+  <ellipse cx="100" cy="90" rx="52" ry="46" fill="var(--fur)" stroke="var(--fur-dark)" stroke-width="1.3"/>
+
+  <!-- 耳朵 -->
+  <path d="M 62 76 L 54 32 L 88 66 Z" fill="var(--fur)" stroke="var(--fur-dark)" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M 138 76 L 146 32 L 112 66 Z" fill="var(--fur)" stroke="var(--fur-dark)" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M 68 74 L 62 50 L 82 66 Z" fill="var(--nose)"/>
+  <path d="M 132 74 L 138 50 L 118 66 Z" fill="var(--nose)"/>
+
+  <!-- 脸部浅色 mask -->
+  <ellipse cx="100" cy="106" rx="32" ry="24" fill="var(--fur-light)"/>
+
+  <!-- 腮红（明显） -->
+  <ellipse cx="70" cy="108" rx="10" ry="6" fill="var(--cheek)"/>
+  <ellipse cx="130" cy="108" rx="10" ry="6" fill="var(--cheek)"/>
+
+  <!-- 眼睛（大 kawaii） -->
+  <g class="blink-g">
+  <ellipse cx="82" cy="94" rx="10" ry="12" fill="#fff" stroke="var(--ink)" stroke-width="1.5"/>
+  <ellipse cx="82" cy="94" rx="5.5" ry="8.5" fill="var(--ink)"/>
+  <ellipse cx="79" cy="89" rx="2.5" ry="3" fill="#fff"/>
+  <ellipse cx="84" cy="98" rx="1.2" ry="1.4" fill="#fff"/>
+  </g>
+  <g class="blink-g">
+  <ellipse cx="118" cy="94" rx="10" ry="12" fill="#fff" stroke="var(--ink)" stroke-width="1.5"/>
+  <ellipse cx="118" cy="94" rx="5.5" ry="8.5" fill="var(--ink)"/>
+  <ellipse cx="115" cy="89" rx="2.5" ry="3" fill="#fff"/>
+  <ellipse cx="120" cy="98" rx="1.2" ry="1.4" fill="#fff"/>
+  </g>
+
+  <!-- 鼻子 -->
+  <path d="M 96 114 L 104 114 L 100 120 Z" fill="var(--nose)" stroke="var(--ink)" stroke-width="1"/>
+  <!-- w 嘴 -->
+  <line x1="100" y1="120" x2="100" y2="123" stroke="var(--ink)" stroke-width="1.2"/>
+  <path d="M 91 121 Q 96 128 100 123" fill="none" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M 109 121 Q 104 128 100 123" fill="none" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
+
+  <!-- 胡须 -->
+  <line x1="62" y1="108" x2="46" y2="106" stroke="var(--ink-2)" stroke-width="0.9"/>
+  <line x1="62" y1="113" x2="46" y2="114" stroke="var(--ink-2)" stroke-width="0.9"/>
+  <line x1="138" y1="108" x2="154" y2="106" stroke="var(--ink-2)" stroke-width="0.9"/>
+  <line x1="138" y1="113" x2="154" y2="114" stroke="var(--ink-2)" stroke-width="0.9"/>
+
+  <!-- 左爪抱杯（可选装饰，展示喝水场景） -->
+  <g transform="translate(74 175) rotate(-8)">
+    <path d="M -6 -8 L 6 -8 L 5 6 L -5 6 Z" fill="var(--cup)" stroke="var(--ink)" stroke-width="1.1"/>
+    <path d="M -5 -5 L 5 -5 L 4 6 L -4 6 Z" fill="var(--water)"/>
+    <line x1="-6" y1="-7.5" x2="6" y2="-7.5" stroke="#fff" stroke-width="0.8"/>
+    <path d="M 6 -5 Q 10 -3 10 3 Q 10 5 6 5" fill="none" stroke="var(--ink)" stroke-width="1.1"/>
+  </g>
+</symbol>
+
+<!-- 迷你 logo（闭眼版） -->
+<symbol id="cat-mini" viewBox="0 0 200 210">
+  <ellipse cx="100" cy="115" rx="62" ry="52" fill="var(--fur)" stroke="var(--fur-dark)" stroke-width="1.6"/>
+  <path d="M 54 88 L 44 34 L 88 76 Z" fill="var(--fur)" stroke="var(--fur-dark)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M 146 88 L 156 34 L 112 76 Z" fill="var(--fur)" stroke="var(--fur-dark)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M 62 84 L 56 56 L 80 76 Z" fill="var(--nose)"/>
+  <path d="M 138 84 L 144 56 L 120 76 Z" fill="var(--nose)"/>
+  <path d="M 72 108 Q 80 118 88 108" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 112 108 Q 120 118 128 108" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 96 128 L 104 128 L 100 134 Z" fill="var(--nose)" stroke="var(--ink)" stroke-width="1"/>
+</symbol>
+</svg>
+
+<nav><div class="wrap nav-in">
+  <div class="brand"><span class="brand-cat"><svg><use href="#cat-mini"/></svg></span>盯盯喵</div>
+  <div class="nav-links">
+    <a href="#f">功能</a>
+    <a href="#report">报告</a>
+    <a href="#how">怎么用</a>
+    <a href="#s">数据</a>
+  </div>
+  <button class="btn" onclick="document.getElementById('how').scrollIntoView()">开始使用</button>
+</div></nav>
+
+<header class="hero"><div class="wrap hero-grid">
+  <div>
+    <span class="eyebrow">Local-only · v1.3 · 桌面小猫</span>
+    <h1>一只小猫蹲桌角，<br>替你盯住 <span class="sig">久坐、喝水、健康</span></h1>
+    <p class="sub">看你坐了多久、有没有喝水；点它眼睛看画面，喝水时它举杯陪你喝，气泡里一键打开每日报告。画面不出这台电脑。</p>
+    <div class="hero-ctas">
+      <a class="btn" href="https://github.com/denngyu/dingding-meow/releases/latest/download/DingDingMeow-v1.0-windows.zip">⬇ 下载 v1.0 (Windows)</a>
+      <a class="btn btn-ghost" href="https://github.com/denngyu/dingding-meow" target="_blank">在 GitHub 查看</a>
+    </div>
+    <div class="stat-strip">
+      <div>🔒 <b>纯本地</b></div>
+      <div>联网 <b>0</b></div>
+      <div>CPU <b>低占用</b></div>
+      <div><b>免费</b></div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+    <div class="stage-label"><span class="dot"></span>桌面浮窗预览</div>
+    <div class="stage-tag">DESKTOP</div>
+
+    <div class="vid-bubble">
+      <div class="vh"><span class="live">● LIVE</span><span>CAM 0</span></div>
+      <div class="vc">
+        <div class="face-box"></div>
+        <div class="cup-box"></div>
+      </div>
+    </div>
+
+    <div class="txt-bubble">
+      <div class="m1">陪你工作 · 已坐 32 分钟</div>
+      <div class="m2">今日饮水 850 / 2000 ml</div>
+      <div class="m3">💧 喝口水吧~</div>
+      <div class="btns">
+        <span class="btn-s btn-log">📁 日志</span>
+        <span class="btn-s btn-rep">📊 报告</span>
+      </div>
+    </div>
+
+    <img class="cat-sprite" src="assets/cat_sprites/watch.png" alt="盯盯喵">
+  </div>
+</div></header>
+
+<section class="block" id="f"><div class="wrap">
+  <div class="sec-head">
+    <span class="eyebrow">六件事，一只猫全管</span>
+    <div class="h2">桌角一动不动，替你留意健康</div>
+    <p class="lead">全部本地跑，不联网、不上传、不写云。</p>
+  </div>
+  <div class="grid6">
+    <div class="cell"><div class="em">45min</div><h3>久坐提醒</h3><p>连续坐超过 45 分钟，小猫皱眉、抖动，催你起来动动。你真起身走开，它立刻改口不再念叨。</p></div>
+    <div class="cell"><div class="em">Zzz</div><h3>离座计时</h3><p>你一走开就开始计时，回来告诉你"离开了几分几秒"，每一段坐/离都记进当天日志。</p></div>
+    <div class="cell"><div class="em">🥤</div><h3>喝水记录 · 猫抱杯</h3><p>识别到你举杯喝水，猫爪里也会举起小水杯一起喝。弹窗一点就记（一口/半杯/一杯/一瓶）。</p></div>
+    <div class="cell"><div class="em">2000ml</div><h3>饮水目标 + 提醒</h3><p>每天 2000ml 目标；超过 60 分钟没喝水，气泡里就出现 "💧 喝口水吧~" 轻推一下。</p></div>
+    <div class="cell"><div class="em">👁</div><h3>点眼睛看画面</h3><p>默认闭眼，只默默数着。想看它眼里的画面？点它眼睛就睁开，监控画面从脑袋里升起。再点一次收起。</p></div>
+    <div class="cell"><div class="em">📊</div><h3>每日健康报告</h3><p>气泡按"📊 报告"或托盘菜单点开：饮水趋势、坐时长、久坐超限次数、7 天对比。数据全在本地。</p></div>
+  </div>
+</div></section>
+
+<section class="block" id="report" style="background:var(--surface-2)"><div class="wrap">
+  <div class="sec-head">
+    <span class="eyebrow">每日报告 · 一键打开</span>
+    <div class="h2">今天喝了多少水、坐了多久、有几次超时</div>
+    <p class="lead">聚合本地 CSV 生成的自包含 HTML，内嵌 SVG 图表，无外部依赖。点气泡右边"📊 报告"或托盘菜单打开。</p>
+  </div>
+
+  <div class="report-preview">
+    <div class="rp-head">
+      <div>
+        <div class="rp-title">盯盯喵 · 今日健康报告</div>
+        <div class="rp-hint" style="margin-top:4px;color:var(--ink-3)">2026-07-14 · 数据来自本地日志</div>
+      </div>
+      <div class="rp-hint">LOCAL · 无上传</div>
+    </div>
+
+    <div class="rp-cards">
+      <div class="rp-card"><div class="k">今日饮水</div><div class="v">850<span class="u"> ml</span></div>
+        <div class="p"><span style="width:42%"></span></div>
+        <div class="rp-hint" style="margin-top:6px">目标 2000 · 完成 42%</div></div>
+      <div class="rp-card"><div class="k">坐时长</div><div class="v">186<span class="u"> 分</span></div>
+        <div class="rp-hint" style="margin-top:6px">共 5 段</div></div>
+      <div class="rp-card"><div class="k">最长连续</div><div class="v">62<span class="u"> 分</span></div>
+        <div class="rp-hint" style="margin-top:6px" style="color:var(--signal)">超了 45 分</div></div>
+      <div class="rp-card"><div class="k">久坐超限</div><div class="v">2<span class="u"> 次</span></div>
+        <div class="rp-hint" style="margin-top:6px">被小猫催</div></div>
+    </div>
+
+    <div class="rp-chart">
+      <div class="rp-chart-title">近 7 天饮水趋势（含目标线）</div>
+      <svg viewBox="0 0 560 180" style="width:100%;height:auto">
+        <!-- grid lines -->
+        <line x1="40" y1="30" x2="550" y2="30" stroke="var(--line)"/>
+        <line x1="40" y1="70" x2="550" y2="70" stroke="var(--line)"/>
+        <line x1="40" y1="110" x2="550" y2="110" stroke="var(--line)"/>
+        <text x="34" y="33" font-family="monospace" font-size="9" fill="var(--ink-3)" text-anchor="end">2000</text>
+        <text x="34" y="73" font-family="monospace" font-size="9" fill="var(--ink-3)" text-anchor="end">1500</text>
+        <text x="34" y="113" font-family="monospace" font-size="9" fill="var(--ink-3)" text-anchor="end">1000</text>
+        <text x="34" y="153" font-family="monospace" font-size="9" fill="var(--ink-3)" text-anchor="end">500</text>
+        <!-- 目标线 -->
+        <line x1="40" y1="30" x2="550" y2="30" stroke="var(--good)" stroke-dasharray="4,3" stroke-width="1.5"/>
+        <text x="546" y="26" font-family="monospace" font-size="10" fill="var(--good)" font-weight="700" text-anchor="end">目标 2000ml</text>
+        <!-- bars 7 天 -->
+        <g fill="var(--signal)">
+          <rect x="60" y="70"  width="42" height="80" rx="2"/>
+          <rect x="130" y="50" width="42" height="100" rx="2"/>
+          <rect x="200" y="30" width="42" height="120" rx="2" fill="var(--good)"/>
+          <rect x="270" y="40" width="42" height="110" rx="2"/>
+          <rect x="340" y="90" width="42" height="60" rx="2"/>
+          <rect x="410" y="60" width="42" height="90" rx="2"/>
+          <rect x="480" y="82" width="42" height="68" rx="2"/>
+        </g>
+        <!-- 数值 -->
+        <g font-family="sans-serif" font-size="10" fill="var(--ink)" font-weight="600" text-anchor="middle">
+          <text x="81" y="66">1200</text><text x="151" y="46">1500</text><text x="221" y="26">2000</text>
+          <text x="291" y="36">1600</text><text x="361" y="86">700</text><text x="431" y="56">1400</text><text x="501" y="78">850</text>
+        </g>
+        <!-- 日期 -->
+        <g font-family="sans-serif" font-size="10" fill="var(--ink-3)" text-anchor="middle">
+          <text x="81" y="170">07/08</text><text x="151" y="170">07/09</text><text x="221" y="170">07/10</text>
+          <text x="291" y="170">07/11</text><text x="361" y="170">07/12</text><text x="431" y="170">07/13</text><text x="501" y="170">今日</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div></section>
+
+<section class="block" id="how"><div class="wrap">
+  <div class="sec-head">
+    <span class="eyebrow">怎么用 · 三步</span>
+    <div class="h2">双击就活，不用装 Python 也行</div>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="n">STEP 01</div><h4>拿到 exe 或源码</h4><p>直接双击 <code>dist\盯盯喵.exe</code> 即可（旁边要有 <code>models/</code>）；<br>或跑源码：<code>pip install opencv-python==4.10.0.84 pillow pystray</code>。</p></div>
+    <div class="step"><div class="n">STEP 02</div><h4>双击启动</h4><p>双击 <code>盯盯喵.vbs</code>，小猫直接出现在桌角，全程无黑窗。托盘里也会出现小猫图标。</p></div>
+    <div class="step"><div class="n">STEP 03</div><h4>它自己盯着</h4><p>右键小猫或点托盘：看报告 / 睁眼 / 暂停 / 开机自启。开视频会议前先暂停，免得抢摄像头。</p></div>
+  </div>
+</div></section>
+
+<section class="block" id="s" style="background:var(--surface-2)"><div class="wrap">
+  <div class="sec-head">
+    <span class="eyebrow">实测</span>
+    <div class="h2">真跑出来的，不是宣传话</div>
+  </div>
+  <div class="specs">
+    <div class="spec"><div class="n">0<em> 次</em></div><div class="l">联网 / 上传 / 云端</div></div>
+    <div class="spec"><div class="n">66<em> MB</em></div><div class="l">exe 总大小 (含模型)</div></div>
+    <div class="spec"><div class="n">0.5<em> 秒</em></div><div class="l">检测间隔</div></div>
+    <div class="spec"><div class="n">6<em> 合1</em></div><div class="l">久坐·离座·喝水·目标·报告·浮窗</div></div>
+  </div>
+</div></section>
+
+<section class="block" style="padding-top:20px"><div class="wrap">
+  <div class="cta-block">
+    <span class="eyebrow" style="color:var(--signal)">Take it back</span>
+    <h2>把摄像头，变成桌角的小伙伴</h2>
+    <p>不监控你、不卖你数据，只安安静静替你盯住健康那点事。</p>
+    <button class="btn" onclick="document.getElementById('how').scrollIntoView()">▶ 现在开始</button>
+  </div>
+</div></section>
+
+<footer>盯盯喵 v1.3 · DINGDING-MEOW · 久坐 + 离座 + 喝水 + 报告 · 画面不出你的电脑</footer>
+
+</body></html>

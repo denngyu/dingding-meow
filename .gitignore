@@ -1,0 +1,36 @@
+# 构建产物
+build/
+dist/
+dist_v13/
+dist_v1old/
+*.spec
+build_*.log
+build_*.log.err
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# 运行时数据（用户本地才有）
+logs/
+settings.json
+
+# OS 元数据
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 空目录/临时
+.agents/
+
+# 发布产物（走 GitHub Releases，不进 repo）
+DingDingMeow-*.zip
+_release_stage/
