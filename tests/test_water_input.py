@@ -1,9 +1,19 @@
 import unittest
 
-from water_input import WATER_DIALOG_HEIGHT, parse_water_amount
+from water_input import WATER_DIALOG_HEIGHT, WATER_PRESETS, parse_water_amount
 
 
 class WaterInputTests(unittest.TestCase):
+    def test_presets_match_calibrated_amounts(self):
+        self.assertEqual(
+            WATER_PRESETS,
+            (("一口", 50), ("半杯", 150), ("一杯", 300), ("一瓶", 500)),
+        )
+
+    def test_presets_are_valid_manual_amounts(self):
+        for _, amount in WATER_PRESETS:
+            self.assertEqual(parse_water_amount(amount), amount)
+
     def test_accepts_a_typed_amount(self):
         self.assertEqual(parse_water_amount("50"), 50)
         self.assertEqual(parse_water_amount(" 350 "), 350)

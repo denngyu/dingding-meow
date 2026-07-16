@@ -1,6 +1,7 @@
 import re
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image
 
@@ -71,6 +72,72 @@ class CatSpriteAssetTests(unittest.TestCase):
         height = bbox[3] - bbox[1]
         self.assertGreater(width / height, 1.33)
 
+    def test_knock_frames_keep_center_and_foot_baseline_stable(self):
+        frames = cat_sprites.load_knock_frames()
+        boxes = [image.getchannel("A").getbbox() for image in frames]
+        centers = [(box[0] + box[2]) / 2.0 for box in boxes]
+        bottoms = [box[3] for box in boxes]
+
+        self.assertEqual(len(frames), 5)
+        self.assertLessEqual(max(centers) - min(centers), 1.0)
+        self.assertLessEqual(max(bottoms) - min(bottoms), 1)
+        self.assertEqual(frames[0].tobytes(), frames[-1].tobytes())
+
+    def test_roll_frames_are_cached_size_safe_and_color_key_safe(self):
+        path = cat_sprites.roll_sprite_path()
+        self.assertTrue(path.exists(), path)
+        with Image.open(path) as source:
+            self.assertEqual(source.mode, "RGBA")
+            bbox = source.getchannel("A").getbbox()
+            self.assertIsNotNone(bbox)
+            width = bbox[2] - bbox[0]
+            height = bbox[3] - bbox[1]
+            self.assertGreater(width / height, 0.85)
+            self.assertLess(width / height, 1.15)
+            self.assertEqual(
+                [source.getchannel("A").getpixel(point) for point in (
+                    (0, 0),
+                    (source.width - 1, 0),
+                    (0, source.height - 1),
+                    (source.width - 1, source.height - 1),
+                )],
+                [0, 0, 0, 0],
+            )
+
+        with mock.patch.object(
+            cat_sprites,
+            "load_knock_frames",
+            side_effect=AssertionError("roll frames must use the dedicated asset"),
+        ):
+            frames,bottom_offset=cat_sprites.load_roll_frames()
+
+        self.assertEqual(len(frames),cat_sprites.ROLL_FRAME_COUNT)
+        self.assertGreater(frames[0].width,cat_sprites.DEFAULT_SPRITE_SIZE)
+        self.assertGreater(bottom_offset,0)
+        for frame in frames:
+            self.assertEqual(frame.size,frames[0].size)
+            self.assertLessEqual(set(frame.getchannel("A").getdata()),{0,255})
+            frame_bbox=frame.getchannel("A").getbbox()
+            self.assertIsNotNone(frame_bbox)
+            subject_extent=max(
+                frame_bbox[2]-frame_bbox[0],
+                frame_bbox[3]-frame_bbox[1],
+            )
+            self.assertLessEqual(
+                subject_extent,
+                round(cat_sprites.DEFAULT_SPRITE_SIZE*0.60),
+            )
+            self.assertGreaterEqual(
+                subject_extent,
+                round(cat_sprites.DEFAULT_SPRITE_SIZE*0.50),
+            )
+        self.assertEqual(cat_sprites.roll_frame_index(0),0)
+        self.assertEqual(cat_sprites.roll_frame_index(360),0)
+        self.assertEqual(
+            cat_sprites.roll_frame_index(-360),
+            0,
+        )
+
 
 class CatSpriteStateTests(unittest.TestCase):
     def test_business_states_select_the_expected_pose(self):
@@ -79,7 +146,7 @@ class CatSpriteStateTests(unittest.TestCase):
             ({"mood": "seated"}, "idle"),
             ({"mood": "seated", "resting": True}, "sleep"),
             ({"mood": "seated", "eyes_open": True}, "watch"),
-            ({"mood": "seated", "eyes_open": True, "blink": True}, "idle"),
+            ({"mood": "seated", "eyes_open": True, "blink": True}, "watch"),
             ({"mood": "over"}, "over"),
             ({"mood": "away"}, "away"),
             ({"mood": "blocked"}, "away"),
@@ -92,6 +159,16 @@ class CatSpriteStateTests(unittest.TestCase):
         ]
         for kwargs, expected in cases:
             self.assertEqual(cat_sprites.select_sprite(**kwargs), expected, kwargs)
+
+    def test_blink_does_not_switch_the_open_eye_cat_to_the_tailed_pose(self):
+        self.assertEqual(
+            cat_sprites.select_sprite(
+                mood="seated",
+                eyes_open=True,
+                blink=True,
+            ),
+            "watch",
+        )
 
     def test_eye_hitbox_stays_inside_the_displayed_sprite(self):
         self.assertEqual(cat_sprites.DEFAULT_SPRITE_SIZE, 144)

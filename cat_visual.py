@@ -39,6 +39,14 @@ def clamp01(value):
     return max(0.0, min(1.0, float(value)))
 
 
+def action_frame_index(elapsed, frame_count, duration_seconds):
+    """一次性动作选帧；时间越界时停在首帧或末帧。"""
+    frame_count = max(1, int(frame_count))
+    duration_seconds = max(0.001, float(duration_seconds))
+    progress = clamp01(float(elapsed) / duration_seconds)
+    return min(frame_count - 1, int(progress * frame_count))
+
+
 def ease_out_quart(value):
     value = clamp01(value)
     return 1.0 - (1.0 - value) ** 4

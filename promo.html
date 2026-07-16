@@ -244,11 +244,11 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
 
 <header class="hero"><div class="wrap hero-grid">
   <div>
-    <span class="eyebrow">Local-only · v1.3 · 桌面小猫</span>
+    <span class="eyebrow">Local-only · v1.4 · Windows 桌面小猫</span>
     <h1>一只小猫蹲桌角，<br>替你盯住 <span class="sig">久坐、喝水、健康</span></h1>
-    <p class="sub">看你坐了多久、有没有喝水；点它眼睛看画面，喝水时它举杯陪你喝，气泡里一键打开每日报告。画面不出这台电脑。</p>
+    <p class="sub">看你坐了多久、有没有喝水；锁屏立即算离开，短暂丢脸 30 秒内不断档。坐满 1 小时，小猫会缩成毛球滚到中央叩屏提醒。画面不出这台电脑。</p>
     <div class="hero-ctas">
-      <a class="btn" href="https://github.com/denngyu/dingding-meow/releases/latest/download/DingDingMeow-windows.zip">⬇ 下载 v1.0 (Windows)</a>
+      <a class="btn" href="https://github.com/denngyu/dingding-meow/releases/latest/download/DingDingMeow-windows.zip">⬇ 下载 v1.4 (Windows)</a>
       <a class="btn btn-ghost" href="https://github.com/denngyu/dingding-meow" target="_blank">在 GitHub 查看</a>
     </div>
     <div class="stat-strip">
@@ -288,16 +288,16 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
 <section class="block" id="f"><div class="wrap">
   <div class="sec-head">
     <span class="eyebrow">六件事，一只猫全管</span>
-    <div class="h2">桌角一动不动，替你留意健康</div>
+    <div class="h2">平时守在桌角，该催你时会自己滚过来</div>
     <p class="lead">全部本地跑，不联网、不上传、不写云。</p>
   </div>
   <div class="grid6">
-    <div class="cell"><div class="em">45min</div><h3>久坐提醒</h3><p>连续坐超过 45 分钟，小猫皱眉、抖动，催你起来动动。你真起身走开，它立刻改口不再念叨。</p></div>
-    <div class="cell"><div class="em">Zzz</div><h3>离座计时</h3><p>你一走开就开始计时，回来告诉你"离开了几分几秒"，每一段坐/离都记进当天日志。</p></div>
-    <div class="cell"><div class="em">🥤</div><h3>喝水记录 · 猫抱杯</h3><p>识别到你举杯喝水，猫爪里也会举起小水杯一起喝。弹窗一点就记（一口/半杯/一杯/一瓶）。</p></div>
-    <div class="cell"><div class="em">2000ml</div><h3>饮水目标 + 提醒</h3><p>每天 2000ml 目标；超过 60 分钟没喝水，气泡里就出现 "💧 喝口水吧~" 轻推一下。</p></div>
-    <div class="cell"><div class="em">👁</div><h3>点眼睛看画面</h3><p>默认闭眼，只默默数着。想看它眼里的画面？点它眼睛就睁开，监控画面从脑袋里升起。再点一次收起。</p></div>
-    <div class="cell"><div class="em">📊</div><h3>每日健康报告</h3><p>气泡按"📊 报告"或托盘菜单点开：饮水趋势、坐时长、久坐超限次数、7 天对比。数据全在本地。</p></div>
+    <div class="cell"><div class="em">1h</div><h3>滚到中央叩屏</h3><p>连续久坐满 1 小时，猫缩成约 81px 的灰白毛球，只沿 X 轴慢慢滚到中央叩屏三次，再滚回原位。可随时关闭。</p></div>
+    <div class="cell"><div class="em">30s</div><h3>离座、锁屏更准确</h3><p>锁屏立即结束本次久坐；托腮或短暂丢脸 30 秒内回来仍接着算。双正脸分类器交叉确认，也更不容易把柜子当脸。</p></div>
+    <div class="cell"><div class="em">🥤</div><h3>喝水记录 · 猫抱杯</h3><p>识别到你举杯喝水，猫也会举杯陪你喝。支持 50 / 150 / 300 / 500ml 快捷记录，误判时 Esc 或右上角直接关闭。</p></div>
+    <div class="cell"><div class="em">20–90</div><h3>饮水目标 + 可调提醒</h3><p>每天 2000ml 目标；喝水提醒默认 30 分钟，可选 20 / 45 / 60 / 90 分钟，并从最近喝水或提醒重新计时。</p></div>
+    <div class="cell"><div class="em">👁</div><h3>低频本地预览</h3><p>默认闭眼、低频抽帧省 CPU。点眼睛才展开摄像头画面；所有识别只在本机内存中完成，不上传、不存视频。</p></div>
+    <div class="cell"><div class="em">📊</div><h3>日志与每日健康报告</h3><p>气泡或托盘一键打开：饮水趋势、坐时长、久坐超限次数和 7 天对比。日志与自包含报告都留在本机。</p></div>
   </div>
 </div></section>
 
@@ -389,7 +389,7 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
     <div class="spec"><div class="n">0<em> 次</em></div><div class="l">联网 / 上传 / 云端</div></div>
     <div class="spec"><div class="n">66<em> MB</em></div><div class="l">exe 总大小 (含模型)</div></div>
     <div class="spec"><div class="n">0.5<em> 秒</em></div><div class="l">检测间隔</div></div>
-    <div class="spec"><div class="n">6<em> 合1</em></div><div class="l">久坐·离座·喝水·目标·报告·浮窗</div></div>
+    <div class="spec"><div class="n">7<em> 合1</em></div><div class="l">久坐·中央叩屏·离座·喝水·目标·报告·浮窗</div></div>
   </div>
 </div></section>
 
@@ -402,6 +402,6 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
   </div>
 </div></section>
 
-<footer>盯盯喵 v1.3 · DINGDING-MEOW · 久坐 + 离座 + 喝水 + 报告 · 画面不出你的电脑</footer>
+<footer>盯盯喵 v1.4 · DINGDING-MEOW · 中央叩屏 + 久坐 + 离座 + 喝水 + 报告 · 画面不出你的电脑</footer>
 
 </body></html>

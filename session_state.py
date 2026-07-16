@@ -5,6 +5,7 @@ import os
 
 
 DESKTOP_SWITCHDESKTOP = 0x0100
+SESSION_RESUME_SEC = 30
 
 
 def is_session_locked(user32=None, platform_name=None):
@@ -15,11 +16,22 @@ def is_session_locked(user32=None, platform_name=None):
     desktop = user32.OpenInputDesktop(0, False, DESKTOP_SWITCHDESKTOP)
     if not desktop:
         return True
-    user32.CloseDesktop(desktop)
-    return False
+    try:
+        return not bool(user32.SwitchDesktop(desktop))
+    finally:
+        user32.CloseDesktop(desktop)
 
 
 def is_present(blocked, locked, last_seen, now, grace_seconds):
     if blocked or locked or not last_seen:
         return False
     return now - last_seen < grace_seconds
+
+
+def session_gap_expired(away_since, now, locked=False, resume_seconds=SESSION_RESUME_SEC):
+    """短暂检测不到脸时保留本次久坐；锁屏则立即结束。"""
+    if locked:
+        return True
+    if away_since is None:
+        return False
+    return float(now) - float(away_since) > float(resume_seconds)

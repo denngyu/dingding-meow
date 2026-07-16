@@ -3,6 +3,7 @@
 import sys, os, threading, time, shutil, tempfile, math, subprocess, webbrowser
 import tkinter as tk
 from datetime import datetime, timedelta
+import center_nudge
 import cat_visual
 import cat_sprites
 import report_icon
@@ -11,10 +12,10 @@ from cup_detection import decode_cup_boxes, face_focus_region, is_cup_near_face,
 from face_detection import detect_face_boxes, load_face_cascades
 from onboarding import should_show_onboarding, show_onboarding as open_onboarding
 from report_icon import report_favicon_link
-from session_state import is_present, is_session_locked
+from session_state import SESSION_RESUME_SEC, is_present, is_session_locked, session_gap_expired
 from status_label import render_status_label
 from ui_behavior import compact_status, detail_bubble_top, pointer_keeps_details_open, status_label_y, video_bubble_top
-from water_input import WATER_DIALOG_HEIGHT, WATER_DIALOG_WIDTH, parse_water_amount
+from water_input import WATER_DIALOG_HEIGHT, WATER_DIALOG_WIDTH, WATER_PRESETS, parse_water_amount
 from water_reminder import (
     DEFAULT_WATER_REMINDER_MIN,
     WATER_REMINDER_OPTIONS,
@@ -28,7 +29,7 @@ if getattr(sys, "frozen", False):
 else:
     _self = os.path.dirname(os.path.abspath(__file__))
 import cv2
-from PIL import Image, ImageTk, ImageDraw
+from PIL import Image, ImageTk, ImageDraw, ImageOps
 
 # ─────────── 参数 ───────────
 CAM_INDEX=0; CHECK_EVERY=0.5; SIT_LIMIT_MIN=45; GRACE_SEC=25; OVER_GRACE=5; BLOCK_LEVEL=22
@@ -127,6 +128,7 @@ STATE={
     "water_reminder_anchor":_initial_drink_ts or _started_at,
     "last_nudge_ts":0.0,
     "water_reminder_min":load_water_reminder(SETTINGS_PATH),
+    "center_nudge_enabled":center_nudge.load_enabled(SETTINGS_PATH),
     "sit_session_start":None, "over_flag":False,
     "paused":False, "locked":False, "_toggle_eyes":False, "_show_onboarding":False, "_quit":False,
     "_manual_drink":False,
@@ -140,9 +142,16 @@ def set_water_reminder(minutes):
     STATE["water_reminder_min"]=minutes
     return True
 
+
+def set_center_nudge_enabled(enabled):
+    try: enabled=center_nudge.save_enabled(SETTINGS_PATH,enabled)
+    except OSError: return False
+    STATE["center_nudge_enabled"]=enabled
+    return True
+
 def loop():
     cap=cv2.VideoCapture(CAM_INDEX,cv2.CAP_DSHOW)
-    last_seen=away_start=None; sit_start=None; was_drinking=False; prev_mode="init"
+    last_seen=away_start=None; sit_start=None; session_away_start=None; was_drinking=False; prev_mode="init"
     while True:
         if STATE["_quit"]: break
         now=time.time()
@@ -150,7 +159,7 @@ def loop():
         if locked:
             if prev_mode in ("seated","over") and sit_start is not None:
                 slog_write(sit_start,now,STATE["over_flag"])
-            sit_start=None; last_seen=None; was_drinking=False; STATE["cup_hits"]=0
+            sit_start=None; session_away_start=None; last_seen=None; was_drinking=False; STATE["cup_hits"]=0
             STATE["sit_session_start"]=None
             if away_start is None: away_start=now
             STATE.update(mode="away",locked=True,away=now-away_start,sit=0,frame=None)
@@ -162,6 +171,28 @@ def loop():
             STATE["mode"]="paused"; time.sleep(0.5); continue
         ok,fr=cap.read()
         if not ok or fr is None:
+            now=time.time()
+            if away_start is None: away_start=last_seen if last_seen else now
+            if sit_start is not None and session_away_start is None:
+                session_away_start=now
+            expired=session_gap_expired(
+                session_away_start,
+                now,
+                resume_seconds=SESSION_RESUME_SEC,
+            )
+            if sit_start is not None and expired:
+                slog_write(sit_start,session_away_start,STATE["over_flag"])
+                sit_start=None; session_away_start=None
+                STATE["sit_session_start"]=None
+            kept_sit=now-sit_start if sit_start is not None else 0
+            STATE.update(
+                mode="away",
+                locked=False,
+                away=now-away_start,
+                sit=kept_sit,
+                frame=None,
+            )
+            prev_mode="away"
             try: cap.release()
             except: pass
             time.sleep(1); cap=cv2.VideoCapture(CAM_INDEX,cv2.CAP_DSHOW); continue
@@ -174,6 +205,7 @@ def loop():
         cups=[]
         if present:
             away_start=None
+            session_away_start=None
             if sit_start is None:
                 sit_start=last_seen
                 STATE["sit_session_start"]=sit_start; STATE["over_flag"]=False
@@ -204,12 +236,25 @@ def loop():
                 STATE["nudge_until"]=now+WATER_NUDGE_SHOW_SEC
                 STATE["last_nudge_ts"]=now
         else:
-            if prev_mode in ("seated","over") and sit_start is not None:
-                slog_write(sit_start, now, STATE["over_flag"])
-            sit_start=None; was_drinking=False; STATE["cup_hits"]=0
-            STATE["sit_session_start"]=None
             if away_start is None: away_start=last_seen if last_seen else now
-            STATE.update(mode=("blocked" if blocked else "away"), away=now-away_start, sit=0)
+            if sit_start is not None and session_away_start is None:
+                session_away_start=now
+            expired=session_gap_expired(
+                session_away_start,
+                now,
+                resume_seconds=SESSION_RESUME_SEC,
+            )
+            if sit_start is not None and expired:
+                slog_write(sit_start,session_away_start,STATE["over_flag"])
+                sit_start=None; session_away_start=None
+                STATE["sit_session_start"]=None
+            was_drinking=False; STATE["cup_hits"]=0
+            kept_sit=now-sit_start if sit_start is not None else 0
+            STATE.update(
+                mode=("blocked" if blocked else "away"),
+                away=now-away_start,
+                sit=kept_sit,
+            )
         prev_mode=STATE["mode"]
         disp=fr.copy()
         for (x,y,w,h) in fb: cv2.rectangle(disp,(x,y),(x+w,y+h),(0,220,0),2)
@@ -287,20 +332,25 @@ class WaterDialog:
         W,H=WATER_DIALOG_WIDTH,WATER_DIALOG_HEIGHT; sw,sh=t.winfo_screenwidth(),t.winfo_screenheight()
         t.geometry("%dx%d+%d+%d"%(W,H,(sw-W)//2,(sh-H)//2))
         c=tk.Frame(t,bg=PAPER); c.pack(fill="both",expand=1,padx=2,pady=2)
+        close=tk.Label(c,text="✕",font=("Microsoft YaHei UI",12),bg=PAPER,fg=INK3,cursor="hand2")
+        close.place(relx=1.0,x=-14,y=10,anchor="ne")
+        close.bind("<Enter>",lambda e:close.config(fg=SIG))
+        close.bind("<Leave>",lambda e:close.config(fg=INK3))
+        close.bind("<Button-1>",lambda e:s._cancel())
         tk.Label(c,text="💧",font=("Segoe UI Emoji",34),bg=PAPER).pack(pady=(26,2))
         tk.Label(c,text="喝水啦",font=("Microsoft YaHei UI",16,"bold"),bg=PAPER,fg=INK).pack()
         tk.Label(c,text="这次喝了多少?",font=("Microsoft YaHei UI",10),bg=PAPER,fg=INK3).pack(pady=(3,18))
         row=tk.Frame(c,bg=PAPER); row.pack()
-        for lab,ml in [("一口","100"),("半杯","150"),("一杯","250"),("一瓶","500")]:
+        for lab,ml in WATER_PRESETS:
             fr=tk.Frame(row,bg="#FFFFFF",highlightbackground=LINE,highlightthickness=1,cursor="hand2"); fr.pack(side="left",padx=6)
             l1=tk.Label(fr,text=lab,font=("Microsoft YaHei UI",10,"bold"),bg="#FFFFFF",fg=INK,width=5); l1.pack(pady=(9,0))
-            l2=tk.Label(fr,text=ml+" ml",font=("Microsoft YaHei UI",8),bg="#FFFFFF",fg=INK3); l2.pack(pady=(0,9))
+            l2=tk.Label(fr,text=str(ml)+" ml",font=("Microsoft YaHei UI",8),bg="#FFFFFF",fg=INK3); l2.pack(pady=(0,9))
             def mk(fr,l1,l2,mm):
                 def ent(e): fr.config(bg=SIG); l1.config(bg=SIG,fg="#fff"); l2.config(bg=SIG,fg="#fff")
                 def lv(e): fr.config(bg="#FFFFFF"); l1.config(bg="#FFFFFF",fg=INK); l2.config(bg="#FFFFFF",fg=INK3)
                 def cl(e): s.val=mm; s.t.destroy()
                 for w in (fr,l1,l2): w.bind("<Enter>",ent); w.bind("<Leave>",lv); w.bind("<Button-1>",cl)
-            mk(fr,l1,l2,int(ml))
+            mk(fr,l1,l2,ml)
         f2=tk.Frame(c,bg=PAPER); f2.pack(pady=(20,0))
         tk.Label(f2,text="或自己填",font=("Microsoft YaHei UI",9),bg=PAPER,fg=INK3).pack(side="left")
         s.e=tk.Entry(f2,font=("Microsoft YaHei UI",11),width=6,justify="center",bd=0,bg="#FFFFFF",highlightbackground=LINE,highlightthickness=1,relief="flat"); s.e.pack(side="left",padx=6,ipady=3)
@@ -309,7 +359,7 @@ class WaterDialog:
         s.error.pack(pady=(5,0))
         ok=tk.Button(c,text="确 定",command=s._c,font=("Microsoft YaHei UI",11,"bold"),bg=SIG,fg="#fff",activebackground="#A54A28",activeforeground="#fff",cursor="hand2",bd=0,relief="flat",takefocus=True)
         ok.pack(fill="x",padx=26,pady=(8,0),ipady=7)
-        tk.Label(c,text="输入后按 Enter 也能记录",font=("Microsoft YaHei UI",7),bg=PAPER,fg="#aaa69e").pack(pady=(6,0))
+        tk.Label(c,text="Enter 记录 · Esc 或右上 ✕ 关闭（误判时用）",font=("Microsoft YaHei UI",7),bg=PAPER,fg="#aaa69e").pack(pady=(6,0))
         s.e.bind("<Return>",lambda e:s._c())
         s.e.bind("<KP_Enter>",lambda e:s._c())
         s.e.bind("<Escape>",lambda e:s._cancel())
@@ -505,6 +555,10 @@ def start_tray(pet_ref):
     def logs_item(icon, item): open_logs_folder()
     def onboarding_item(icon, item): STATE["_show_onboarding"] = True
     def manual_drink_item(icon, item): STATE["_manual_drink"] = True
+    def center_nudge_item(icon, item):
+        if set_center_nudge_enabled(not STATE["center_nudge_enabled"]):
+            try: icon.update_menu()
+            except Exception: pass
     def interval_menu_item(minutes):
         def select_interval(icon, item):
             if set_water_reminder(minutes):
@@ -526,6 +580,11 @@ def start_tray(pet_ref):
         pystray.MenuItem("打开日志文件夹", logs_item),
         pystray.MenuItem("新手教程", onboarding_item),
         pystray.MenuItem("喝水提醒间隔", interval_menu),
+        pystray.MenuItem(
+            "久坐中央叩屏",
+            center_nudge_item,
+            checked=lambda i: STATE["center_nudge_enabled"],
+        ),
         pystray.MenuItem("睁眼 / 收起画面", eyes_item),
         pystray.MenuItem("暂停检测", pause_item, checked=lambda i: STATE["paused"]),
         pystray.MenuItem("开机自启", autostart_item, checked=lambda i: is_autostart_on()),
@@ -563,11 +622,33 @@ class Pet:
         s._status_text = None
         s._status_photo = None
         s._onboarding_window = None
+        s._center_nudge_active = False
+        s._center_nudge_started = 0.0
+        s._center_nudge_origin = None
+        s._center_nudge_target = None
+        s._center_nudge_sample = None
+        s._center_nudge_triggered_session = None
+        s._center_nudge_restore_eyes = False
+        s._center_nudge_window_pos = None
+        s._center_nudge_message_photo = ImageTk.PhotoImage(
+            render_status_label("坐满1小时啦 · 起来走走"),
+            master=r,
+        )
 
         s.canvas = tk.Canvas(r, width=s.W, height=s.H_OPEN, bg=TRANS, highlightthickness=0)
         s.canvas.pack()
         sprite_images = cat_sprites.load_sprite_images(s.CAT_SPRITE_SIZE)
         s._cat_photos = {key: ImageTk.PhotoImage(image, master=r) for key, image in sprite_images.items()}
+        knock_images = cat_sprites.load_knock_frames(s.CAT_SPRITE_SIZE)
+        s._knock_photos = {
+            1:[ImageTk.PhotoImage(frame,master=r) for frame in knock_images],
+            -1:[ImageTk.PhotoImage(ImageOps.mirror(frame),master=r) for frame in knock_images],
+        }
+        roll_images,s._roll_bottom_offset=cat_sprites.load_roll_frames(s.CAT_SPRITE_SIZE)
+        s._roll_photos=[
+            ImageTk.PhotoImage(frame,master=r)
+            for frame in roll_images
+        ]
         s.canvas.bind("<ButtonPress-1>", s._press)
         s.canvas.bind("<B1-Motion>", s._motion)
         s.canvas.bind("<Motion>", s._hover_motion)
@@ -591,19 +672,21 @@ class Pet:
         r.mainloop()
 
     def _press(s, e):
+        if s._center_nudge_active: return
         s._px, s._py = e.x_root, e.y_root
         s._wx, s._wy = s.r.winfo_x(), s.r.winfo_y()
         s._dragging = False
         s._click_xy = (e.x, e.y)
 
     def _motion(s, e):
+        if s._center_nudge_active: return
         dx, dy = e.x_root - s._px, e.y_root - s._py
         if abs(dx) + abs(dy) > 4:
             s._dragging = True
             s.r.geometry("+%d+%d" % (s._wx + dx, s._wy + dy))
 
     def _hover_motion(s,e):
-        if s._dragging: return
+        if s._dragging or s._center_nudge_active: return
         cx=s.W//2
         cat_bounds=(
             cx-s.CAT_SPRITE_SIZE//2,
@@ -620,12 +703,13 @@ class Pet:
             s.redraw()
 
     def _hover_leave(s,e):
+        if s._center_nudge_active: return
         if s._details_visible:
             s._details_visible=False; s._btn_boxes={}; s._detail_bounds=None
             s.redraw()
 
     def _release(s, e):
-        if s._dragging: return
+        if s._dragging or s._center_nudge_active: return
         x, y = s._click_xy
         # 眼睛热区跟图片尺寸一起计算，换素材后不再依赖旧矢量坐标
         eye_box = cat_sprites.eye_hitbox(s.W//2, s.CAT_BOTTOM, s.CAT_SPRITE_SIZE)
@@ -655,6 +739,12 @@ class Pet:
                 command=lambda value=minutes:set_water_reminder(value),
             )
         m.add_cascade(label="喝水提醒间隔",menu=reminder_menu)
+        center_value=tk.BooleanVar(value=STATE.get("center_nudge_enabled",True))
+        m.add_checkbutton(
+            label="久坐中央叩屏",
+            variable=center_value,
+            command=lambda:set_center_nudge_enabled(center_value.get()),
+        )
         m.add_command(label="睁眼 / 收起画面", command=s.toggle_eyes)
         m.add_command(label="暂停检测" if not STATE["paused"] else "恢复检测",
                       command=lambda: STATE.update(paused=not STATE["paused"]))
@@ -733,6 +823,99 @@ class Pet:
             STATE["last_nudge_ts"] = 0.0
             STATE["nudge_until"] = 0.0
 
+    def _start_center_nudge(s):
+        s._center_nudge_active=True
+        s._center_nudge_started=time.monotonic()
+        s._center_nudge_origin=(s.r.winfo_x(),s.r.winfo_y())
+        s._center_nudge_window_pos=s._center_nudge_origin
+        s._center_nudge_restore_eyes=s.eyes_open
+        s.eyes_open=False
+        s._panel_anim_token+=1
+        s._cur_h=s.H_CLOSED
+        s._details_visible=False
+        s._btn_boxes={}; s._detail_bounds=None
+        sw=s.r.winfo_screenwidth()
+        s._center_nudge_target=center_nudge.cat_center_target(
+            sw,
+            s._center_nudge_origin[1],
+            s.W//2,
+        )
+        s._center_nudge_sample=center_nudge.sample_trip(
+            0.0,
+            s._center_nudge_origin,
+            s._center_nudge_target,
+        )
+
+    def _set_center_nudge_window_position(s,x,y):
+        if s._center_nudge_origin is not None:
+            y=s._center_nudge_origin[1]
+        position=(int(round(x)),int(round(y)))
+        if position==s._center_nudge_window_pos:
+            return
+        s.r.geometry("%+d%+d"%position)
+        s._center_nudge_window_pos=position
+
+    def _update_center_nudge(s):
+        if not s._center_nudge_active: return
+        if center_nudge.should_cancel(
+            STATE["mode"],
+            STATE.get("locked",False),
+            STATE.get("paused",False),
+            STATE.get("center_nudge_enabled",True),
+        ):
+            s._finish_center_nudge()
+            return
+        elapsed=time.monotonic()-s._center_nudge_started
+        sample=center_nudge.sample_trip(
+            elapsed,
+            s._center_nudge_origin,
+            s._center_nudge_target,
+        )
+        s._center_nudge_sample=sample
+        s._set_center_nudge_window_position(sample.x,sample.y)
+        if sample.done:
+            s._finish_center_nudge()
+
+    def _finish_center_nudge(s):
+        origin=s._center_nudge_origin
+        if origin is not None and origin!=s._center_nudge_window_pos:
+            s._set_center_nudge_window_position(*origin)
+        s._center_nudge_active=False
+        s._center_nudge_sample=None
+        s._center_nudge_origin=None
+        s._center_nudge_target=None
+        s._center_nudge_window_pos=None
+        s.eyes_open=s._center_nudge_restore_eyes
+        s._cur_h=s.H_OPEN if s.eyes_open else s.H_CLOSED
+
+    def _draw_angry_steam(s,c,cx,level,rotation_degrees):
+        level=max(0.0,min(1.0,float(level)))
+        if level<=0.06:
+            return
+        phase=math.radians(rotation_degrees)
+        sway=math.sin(phase)*2.2
+        rise=(1.0-level)*5.0
+        radius=2.7+1.8*level
+        for side in (-1,1):
+            base_x=cx+side*(42+4*level)+side*sway
+            base_y=s.CAT_BOTTOM-51-rise+side*math.cos(phase)*1.2
+            lobes=(
+                (0.0,0.0,1.00),
+                (side*4.2,-3.0,0.84),
+                (side*7.2,-7.1,0.66),
+            )
+            for dx,dy,scale in lobes:
+                lobe_radius=radius*scale
+                c.create_oval(
+                    base_x+dx-lobe_radius,
+                    base_y+dy-lobe_radius,
+                    base_x+dx+lobe_radius,
+                    base_y+dy+lobe_radius,
+                    fill="#F4F1EB",
+                    outline="#B8B4AD",
+                    width=1,
+                )
+
     def tick(s):
         if STATE.get("_toggle_eyes"):
             STATE["_toggle_eyes"] = False
@@ -750,10 +933,23 @@ class Pet:
             STATE["_manual_drink"] = False
             s._request_water_dialog(immediate=True)
 
+        session_key=STATE.get("sit_session_start")
+        if session_key!=s._center_nudge_triggered_session and center_nudge.should_start(
+            STATE.get("sit",0),
+            STATE.get("mode","init"),
+            STATE.get("center_nudge_enabled",True),
+            False,
+            s._center_nudge_active,
+        ):
+            s._center_nudge_triggered_session=session_key
+            s._start_center_nudge()
+        if s._center_nudge_active:
+            s._update_center_nudge()
+
         # 多屏切单屏守护：每 2 秒检查一次窗口中心点是否还在某块显示器上；
         # 副屏拔了 / 分辨率缩小导致中心点悬空 → snap 回主屏右下角。
         now_ts = time.time()
-        if not s._dragging and now_ts - s._last_screen_check > 2.0:
+        if not s._dragging and not s._center_nudge_active and now_ts - s._last_screen_check > 2.0:
             s._last_screen_check = now_ts
             cur_x, cur_y = s.r.winfo_x(), s.r.winfo_y()
             if window_placement.needs_reposition(cur_x, cur_y, s.W, s.H_OPEN):
@@ -784,6 +980,42 @@ class Pet:
         cat_cy = s.H_OPEN - s.CAT_MARGIN_BOTTOM
         now = time.time()
         pose = cat_visual.sample_cat_pose(time.monotonic() - s._anim_started, mm)
+
+        if s._center_nudge_active and s._center_nudge_sample is not None:
+            sample=s._center_nudge_sample
+            cat_y=s.CAT_BOTTOM
+            if sample.sprite=="roll":
+                frame_index=cat_sprites.roll_frame_index(
+                    sample.rotation_degrees,
+                    len(s._roll_photos),
+                )
+                cat_photo=s._roll_photos[frame_index]
+                cat_y+=s._roll_bottom_offset
+            elif sample.sprite=="knock":
+                frames=s._knock_photos[sample.facing]
+                frame_index=cat_visual.action_frame_index(
+                    sample.frame_progress,
+                    len(frames),
+                    1.0,
+                )
+                cat_photo=frames[frame_index]
+            else:
+                cat_photo=s._cat_photos.get(sample.sprite,s._cat_photos["idle"])
+            if sample.show_message:
+                c.create_image(
+                    cx,
+                    s.CAT_BOTTOM-s.CAT_SPRITE_SIZE-8,
+                    image=s._center_nudge_message_photo,
+                    anchor="s",
+                )
+            s._draw_angry_steam(
+                c,
+                cx,
+                sample.steam,
+                sample.rotation_degrees,
+            )
+            c.create_image(cx,cat_y,image=cat_photo,anchor="s")
+            return
 
         msg = {
             "seated":"陪你工作 · 已坐 " + dur(STATE["sit"]),

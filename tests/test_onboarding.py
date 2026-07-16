@@ -10,7 +10,18 @@ class OnboardingTests(unittest.TestCase):
     def test_tutorial_has_three_short_practical_steps(self):
         self.assertEqual(len(ONBOARDING_STEPS), 3)
         combined = " ".join(title + " " + body for title, body in ONBOARDING_STEPS)
-        for phrase in ("鼠标", "右键", "本机", "日志", "CPU", "并非卡顿"):
+        for phrase in (
+            "鼠标",
+            "右键",
+            "本机",
+            "日志",
+            "CPU",
+            "并非卡顿",
+            "锁屏",
+            "30 秒",
+            "滚到中央",
+            "关闭中央提醒",
+        ):
             self.assertIn(phrase, combined)
 
     def test_first_launch_shows_once_and_preserves_existing_settings(self):
