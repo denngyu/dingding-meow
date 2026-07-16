@@ -170,6 +170,21 @@ class CatSpriteStateTests(unittest.TestCase):
             "watch",
         )
 
+    def test_final_display_guard_rejects_tailed_poses_while_eyes_are_open(self):
+        for sprite_key in ("idle", "tail"):
+            self.assertEqual(
+                cat_sprites.enforce_display_invariants(
+                    sprite_key,
+                    eyes_open=True,
+                ),
+                "watch",
+                sprite_key,
+            )
+        self.assertEqual(
+            cat_sprites.enforce_display_invariants("hold_cup", eyes_open=True),
+            "hold_cup",
+        )
+
     def test_eye_hitbox_stays_inside_the_displayed_sprite(self):
         self.assertEqual(cat_sprites.DEFAULT_SPRITE_SIZE, 144)
         box = cat_sprites.eye_hitbox(cx=118, bottom=404)

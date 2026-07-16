@@ -5,6 +5,7 @@ import math
 import sys
 
 from PIL import Image
+import skin_system
 
 
 SPRITE_KEYS = (
@@ -38,10 +39,13 @@ def asset_root():
     return Path(__file__).resolve().parent
 
 
-def sprite_path(key):
+def sprite_path(key, skin_id=skin_system.DEFAULT_SKIN_ID):
     if key not in SPRITE_KEYS:
         raise KeyError("unknown cat sprite: %s" % key)
-    return asset_root() / "assets" / "cat_sprites" / (key + ".png")
+    skin = skin_system.resolve_skin(asset_root(), skin_id)
+    if skin is None:
+        raise FileNotFoundError("no complete cat skin is available")
+    return skin.sprite_dir / (key + ".png")
 
 
 def select_sprite(mood="seated", eyes_open=False, blink=False, cup_state=None, resting=False):
@@ -67,14 +71,21 @@ def select_sprite(mood="seated", eyes_open=False, blink=False, cup_state=None, r
     return "idle"
 
 
+def enforce_display_invariants(sprite_key, eyes_open=False):
+    """Apply final UI invariants after all business-state pose selection."""
+    if eyes_open and sprite_key in ("idle", "tail"):
+        return "watch"
+    return sprite_key
+
+
 def eye_hitbox(cx, bottom, size=DEFAULT_SPRITE_SIZE):
     return cx - 24, bottom - size + 30, cx + 24, bottom - size + 70
 
 
-def load_sprite_images(size=DEFAULT_SPRITE_SIZE):
+def load_sprite_images(size=DEFAULT_SPRITE_SIZE, skin_id=skin_system.DEFAULT_SKIN_ID):
     images = {}
     for key in SPRITE_KEYS:
-        with Image.open(sprite_path(key)) as source:
+        with Image.open(sprite_path(key, skin_id=skin_id)) as source:
             image = source.convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
             # Windows Tk 的 transparentcolor 是色键透明，不支持半透明边缘；
             # 半透明像素会和 #FE00FE 混合成紫边，因此显示尺寸上改成二值 alpha。

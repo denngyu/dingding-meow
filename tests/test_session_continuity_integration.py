@@ -25,6 +25,24 @@ class SessionContinuityIntegrationTests(unittest.TestCase):
         self.assertIn('sit=kept_sit', failure_branch)
         self.assertIn('frame=None', failure_branch)
 
+    def test_sleep_releases_camera_and_wake_uses_recovery_manager(self):
+        self.assertIn("camera=CameraCapture(cv2,CAM_INDEX)", PET_SOURCE)
+        self.assertIn("camera.set_locked(locked,now)", PET_SOURCE)
+        self.assertIn("ok,fr=camera.read(now)", PET_SOURCE)
+        self.assertNotIn("cap=cv2.VideoCapture(CAM_INDEX,cv2.CAP_DSHOW)", PET_SOURCE)
+
+    def test_drinking_requires_three_consecutive_hits(self):
+        self.assertIn("CUP_HITS_NEEDED=3", PET_SOURCE)
+
+    def test_detected_faces_refresh_last_seen(self):
+        self.assertIn("fb=[] if blocked else face_boxes", PET_SOURCE)
+        self.assertIn("if fb: last_seen=now", PET_SOURCE)
+
+    def test_detection_supervisor_prevents_stale_overdue_ui(self):
+        self.assertIn("def detection_supervisor():", PET_SOURCE)
+        self.assertIn("target=detection_supervisor", PET_SOURCE)
+        self.assertIn('mode="away"', PET_SOURCE)
+
 
 if __name__ == "__main__":
     unittest.main()

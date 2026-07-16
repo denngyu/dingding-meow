@@ -5,6 +5,7 @@ from pathlib import Path
 
 from water_reminder import (
     DEFAULT_WATER_REMINDER_MIN,
+    WATER_NUDGE_DISPLAY_SEC,
     WATER_REMINDER_OPTIONS,
     load_water_reminder,
     reminder_due,
@@ -18,6 +19,7 @@ class WaterReminderTests(unittest.TestCase):
         self.assertEqual(DEFAULT_WATER_REMINDER_MIN, 30)
         self.assertEqual(WATER_REMINDER_OPTIONS[0], 20)
         self.assertIn(30, WATER_REMINDER_OPTIONS)
+        self.assertEqual(WATER_NUDGE_DISPLAY_SEC, 180)
 
     def test_interval_validation_accepts_user_range(self):
         self.assertEqual(validate_water_reminder("20"), 20)

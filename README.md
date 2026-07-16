@@ -2,7 +2,7 @@
 
 > 一只桌面小猫，用你自己的摄像头替你盯健康。100% 本地跑，画面一帧都不上传。
 
-[![Download](https://img.shields.io/badge/download-v1.4-C15A34)](https://github.com/denngyu/dingding-meow/releases/latest)
+[![Download](https://img.shields.io/badge/download-v1.5-C15A34)](https://github.com/denngyu/dingding-meow/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-1A1B18)](LICENSE)
 [![Local-only](https://img.shields.io/badge/local--only-0%20network-2F6E54)](#)
 
@@ -16,6 +16,8 @@
 - **每日健康报告** — 气泡里的 📊 报告按钮或托盘菜单打开，饮水趋势、坐时长、7 天对比
 - **托盘 + 开机自启** — 桌角一直有它，托盘可以随时暂停
 - **更稳的人脸判断** — 双正脸分类器交叉确认、侧脸对称假目标过滤，降低柜子纹理误判
+- **延时摄影**（v1.5 新）— 默认关闭，右键或托盘手动开始才录；每 60 秒一帧，停止时本地合成 MP4
+- **猫咪皮肤**（v1.5 新）— 银灰经典 / 暖橘元气两套，右键或托盘切换，选择记在本地
 
 宣传页 & 演示: <https://denngyu.github.io/dingding-meow/>
 一张图看懂: [onepage.html](onepage.html)
@@ -52,16 +54,21 @@ python pet.py
 ├── cat_visual.py        连续动画采样
 ├── face_detection.py    正脸/侧脸/翻转侧脸检测
 ├── cup_detection.py     杯子候选解码与近脸裁切
+├── camera_capture.py    摄像头开关、锁屏释放与后端回退重连
 ├── session_state.py     Windows 锁屏检测
 ├── center_nudge.py      一小时中央滚动叩屏时间轴
-├── onboarding.py        首次启动三步教程
+├── timelapse.py         延时摄影抓帧与 MP4 合成
+├── skin_system.py       皮肤发现、解析与持久化
+├── window_placement.py  多屏切单屏时把浮窗拉回主屏
+├── onboarding.py        首次启动教程
 ├── report_icon.py       健康报告的 favicon 内嵌
 ├── settings_store.py    settings.json 原子读写
 ├── ui_behavior.py       悬停行为与状态文案
 ├── status_label.py      无紫边状态签渲染
 ├── water_reminder.py    喝水提醒持久化
 ├── water_input.py       饮水弹窗尺寸与手填值校验
-├── assets/cat_sprites/  8 张 384×384 透明 PNG
+├── assets/cat_sprites/  8 张 384×384 透明 PNG（经典皮肤）
+├── assets/skins/        可扩展皮肤包（orange = 暖橘元气）
 ├── assets/cat_animations/knock/  叩屏动作帧
 ├── assets/cat_animations/roll/   独立毛球素材
 ├── models/              YOLOv4-tiny.cfg/weights
@@ -73,7 +80,7 @@ python pet.py
 ├── 盯盯喵.bat           备用启动
 ├── index.html           宣传页（同 GitHub Pages 上那个）
 ├── onepage.html         一张图讲清全部功能
-├── 交接文档.md          v1.4.0 详细技术交接
+├── 交接文档.md          v1.5.0 详细技术交接
 ├── 项目复盘.md          从想法到落地的踩坑记录
 ├── CLAUDE.md            项目规范
 └── error_log.md         严重错误档案
@@ -91,7 +98,8 @@ pyinstaller --onefile --windowed --name 盯盯喵 \
 
 ## 版本历史
 
-- **v1.4.0 · 2026-07-16** — 稳定无行走版：水平毛球滚动、中央叩屏三次、锁屏立即离开、30 秒会话续接、柜子误判收敛、饮水误判可关闭
+- **v1.5.0 · 2026-07-16** — 延时摄影（默认关，手动开）、猫咪皮肤（银灰经典 / 暖橘元气）、饮水降误报、圆角饮水框、锁屏后摄像头自动恢复
+- v1.4.0 · 2026-07-16 — 水平毛球滚动、中央叩屏三次、锁屏立即离开、30 秒会话续接、柜子误判收敛、饮水误判可关闭
 - v1.0.1 · 2026-07-15 — 手动记录喝水、多屏切单屏自动归位、图标统一
 - **v1.0.0 · 2026-07-15** — 首个正式发布：图片猫、锁屏检测、可调喝水提醒、悬停展开气泡、新手教程、报告 favicon
 - v1.3 · 缩小 27%、猫咪重画更可爱、气泡加日志/报告按钮

@@ -5,6 +5,7 @@ import numpy as np
 from cup_detection import (
     CUP_CLASSES,
     CUP_MIN_CONFIDENCE,
+    CUP_MIN_OBJECTNESS,
     decode_cup_boxes,
     face_focus_region,
     is_cup_near_face,
@@ -21,6 +22,7 @@ class CupDetectionTests(unittest.TestCase):
         self.assertEqual(CUP_MIN_CONFIDENCE, 0.28)
         detection = np.zeros(85, dtype=float)
         detection[:4] = (0.5, 0.5, 0.2, 0.4)
+        detection[4] = 0.80
         detection[5 + 41] = 0.31
 
         boxes = decode_cup_boxes([np.array([detection])], 640, 480)
@@ -30,7 +32,16 @@ class CupDetectionTests(unittest.TestCase):
     def test_noise_below_threshold_is_rejected(self):
         detection = np.zeros(85, dtype=float)
         detection[:4] = (0.5, 0.5, 0.2, 0.4)
+        detection[4] = 0.80
         detection[5 + 41] = 0.27
+        self.assertEqual(decode_cup_boxes([np.array([detection])], 640, 480), [])
+
+    def test_low_objectness_shape_is_rejected_even_with_a_cup_class_score(self):
+        self.assertEqual(CUP_MIN_OBJECTNESS, 0.35)
+        detection = np.zeros(85, dtype=float)
+        detection[:4] = (0.5, 0.5, 0.2, 0.4)
+        detection[4] = 0.20
+        detection[5 + 41] = 0.90
         self.assertEqual(decode_cup_boxes([np.array([detection])], 640, 480), [])
 
     def test_face_focus_region_enlarges_and_clips_the_search_area(self):
@@ -68,6 +79,11 @@ class CupDetectionTests(unittest.TestCase):
 
     def test_candidate_far_below_the_face_is_rejected(self):
         self.assertFalse(is_cup_near_face((100, 100, 100, 100), (130, 270, 50, 60)))
+
+    def test_desktop_trash_can_below_the_chin_is_rejected(self):
+        face = (100, 100, 100, 100)
+        trash_can = (85, 225, 105, 145)
+        self.assertFalse(is_cup_near_face(face, trash_can))
 
 
 if __name__ == "__main__":

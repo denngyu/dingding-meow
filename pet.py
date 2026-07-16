@@ -1,23 +1,41 @@
 # -*- coding: utf-8 -*-
-"""盯盯喵 v1.4-dev：图片猫、多角度检测、托盘、自启与每日报告。纯本地。"""
+"""盯盯喵 v1.5-dev：健康检测、延时摄影与可换肤桌面猫。纯本地。"""
 import sys, os, threading, time, shutil, tempfile, math, subprocess, webbrowser
 import tkinter as tk
 from datetime import datetime, timedelta
 import center_nudge
 import cat_visual
 import cat_sprites
+from camera_capture import CameraCapture
 import report_icon
+import skin_system
+import timelapse
 import window_placement
-from cup_detection import decode_cup_boxes, face_focus_region, is_cup_near_face, largest_face, remap_boxes
+from cup_detection import (
+    decode_cup_boxes,
+    face_focus_region,
+    is_cup_near_face,
+    largest_face,
+    remap_boxes,
+)
 from face_detection import detect_face_boxes, load_face_cascades
 from onboarding import should_show_onboarding, show_onboarding as open_onboarding
 from report_icon import report_favicon_link
 from session_state import SESSION_RESUME_SEC, is_present, is_session_locked, session_gap_expired
 from status_label import render_status_label
 from ui_behavior import compact_status, detail_bubble_top, pointer_keeps_details_open, status_label_y, video_bubble_top
-from water_input import WATER_DIALOG_HEIGHT, WATER_DIALOG_WIDTH, WATER_PRESETS, parse_water_amount
+from water_input import (
+    WATER_ACTION_RADIUS,
+    WATER_DIALOG_HEIGHT,
+    WATER_DIALOG_RADIUS,
+    WATER_DIALOG_WIDTH,
+    WATER_PRESET_RADIUS,
+    WATER_PRESETS,
+    parse_water_amount,
+)
 from water_reminder import (
     DEFAULT_WATER_REMINDER_MIN,
+    WATER_NUDGE_DISPLAY_SEC,
     WATER_REMINDER_OPTIONS,
     load_water_reminder,
     reminder_due,
@@ -33,9 +51,8 @@ from PIL import Image, ImageTk, ImageDraw, ImageOps
 
 # ─────────── 参数 ───────────
 CAM_INDEX=0; CHECK_EVERY=0.5; SIT_LIMIT_MIN=45; GRACE_SEC=25; OVER_GRACE=5; BLOCK_LEVEL=22
-CUP_HITS_NEEDED=2
+CUP_HITS_NEEDED=3
 WATER_TARGET_ML=2000
-WATER_NUDGE_SHOW_SEC=15
 DRINK_ANIM_SEC=2.4
 CUP_HOLD_AFTER_DRINK=6
 
@@ -57,6 +74,10 @@ m=os.path.join(_self,"models"); tmp=tempfile.gettempdir()
 cfg=os.path.join(tmp,"y4t.cfg"); wp=os.path.join(tmp,"y4t.weights")
 shutil.copy(os.path.join(m,"yolov4-tiny.cfg"),cfg); shutil.copy(os.path.join(m,"yolov4-tiny.weights"),wp)
 net=cv2.dnn.readNetFromDarknet(cfg,wp); LN=net.getUnconnectedOutLayersNames()
+TIMELAPSE=timelapse.TimelapseRecorder(
+    cv2,
+    os.path.join(LOG_DIR,"timelapse"),
+)
 
 def face_boxes(gray):
     return detect_face_boxes(gray,face_c,face_alt,face_profile)
@@ -129,9 +150,17 @@ STATE={
     "last_nudge_ts":0.0,
     "water_reminder_min":load_water_reminder(SETTINGS_PATH),
     "center_nudge_enabled":center_nudge.load_enabled(SETTINGS_PATH),
+    "skin_id":skin_system.load_skin(SETTINGS_PATH,cat_sprites.asset_root()),
+    "detector_heartbeat":time.time(),
+    "detector_error":None,
+    "timelapse_active":False,
+    "timelapse_frames":0,
+    "timelapse_last_path":None,
+    "timelapse_saved_until":0.0,
+    "timelapse_error":None,
     "sit_session_start":None, "over_flag":False,
     "paused":False, "locked":False, "_toggle_eyes":False, "_show_onboarding":False, "_quit":False,
-    "_manual_drink":False,
+    "_manual_drink":False, "_toggle_timelapse":False, "_skin_request":None,
 }
 
 def set_water_reminder(minutes):
@@ -150,12 +179,16 @@ def set_center_nudge_enabled(enabled):
     return True
 
 def loop():
-    cap=cv2.VideoCapture(CAM_INDEX,cv2.CAP_DSHOW)
+    camera=CameraCapture(cv2,CAM_INDEX)
     last_seen=away_start=None; sit_start=None; session_away_start=None; was_drinking=False; prev_mode="init"
     while True:
-        if STATE["_quit"]: break
+        if STATE["_quit"]:
+            camera.close()
+            break
         now=time.time()
+        STATE["detector_heartbeat"]=now
         locked=is_session_locked()
+        camera.set_locked(locked,now)
         if locked:
             if prev_mode in ("seated","over") and sit_start is not None:
                 slog_write(sit_start,now,STATE["over_flag"])
@@ -168,8 +201,9 @@ def loop():
             continue
         STATE["locked"]=False
         if STATE["paused"]:
+            camera.suspend(now,retry_delay=0.5)
             STATE["mode"]="paused"; time.sleep(0.5); continue
-        ok,fr=cap.read()
+        ok,fr=camera.read(now)
         if not ok or fr is None:
             now=time.time()
             if away_start is None: away_start=last_seen if last_seen else now
@@ -193,9 +227,8 @@ def loop():
                 frame=None,
             )
             prev_mode="away"
-            try: cap.release()
-            except: pass
-            time.sleep(1); cap=cv2.VideoCapture(CAM_INDEX,cv2.CAP_DSHOW); continue
+            time.sleep(CHECK_EVERY)
+            continue
         gray=cv2.cvtColor(fr,cv2.COLOR_BGR2GRAY); now=time.time()
         blocked=gray.mean()<BLOCK_LEVEL
         fb=[] if blocked else face_boxes(cv2.equalizeHist(gray))
@@ -233,7 +266,7 @@ def loop():
                 STATE["water"],
                 WATER_TARGET_ML,
             ):
-                STATE["nudge_until"]=now+WATER_NUDGE_SHOW_SEC
+                STATE["nudge_until"]=now+WATER_NUDGE_DISPLAY_SEC
                 STATE["last_nudge_ts"]=now
         else:
             if away_start is None: away_start=last_seen if last_seen else now
@@ -260,7 +293,30 @@ def loop():
         for (x,y,w,h) in fb: cv2.rectangle(disp,(x,y),(x+w,y+h),(0,220,0),2)
         for (x,y,w,h) in cups: cv2.rectangle(disp,(x,y),(x+w,y+h),(0,160,255),2)
         STATE["frame"]=cv2.cvtColor(cv2.resize(disp,(160,120)),cv2.COLOR_BGR2RGB)
+        try:
+            if TIMELAPSE.capture(fr,now=now,eligible=present and not blocked):
+                STATE["timelapse_frames"]=TIMELAPSE.frame_count
+            STATE["timelapse_active"]=TIMELAPSE.active
+        except RuntimeError as exc:
+            TIMELAPSE.stop(now=now)
+            STATE["timelapse_active"]=False
+            STATE["timelapse_error"]=str(exc)
         time.sleep(CHECK_EVERY)
+
+
+def detection_supervisor():
+    while not STATE.get("_quit"):
+        try:
+            STATE["detector_error"]=None
+            loop()
+        except Exception as exc:
+            STATE.update(
+                mode="away",
+                frame=None,
+                detector_error=repr(exc),
+                detector_heartbeat=time.time(),
+            )
+            time.sleep(1.0)
 
 def dur(s):
     mm,x=divmod(int(s),60); return "%d分%d秒"%(mm,x) if mm else "%d秒"%x
@@ -328,38 +384,67 @@ LOOKS_BG = {"seated":"#FFFFFF", "over":"#FBE3E0", "away":"#EDEDE8",
 class WaterDialog:
     def __init__(s,parent):
         s.val=None
-        t=tk.Toplevel(parent); s.t=t; t.overrideredirect(1); t.attributes("-topmost",1); t.configure(bg=SIG)
+        t=tk.Toplevel(parent); s.t=t; t.overrideredirect(1); t.attributes("-topmost",1); t.configure(bg=TRANS)
+        try: t.wm_attributes("-transparentcolor",TRANS)
+        except tk.TclError: pass
         W,H=WATER_DIALOG_WIDTH,WATER_DIALOG_HEIGHT; sw,sh=t.winfo_screenwidth(),t.winfo_screenheight()
         t.geometry("%dx%d+%d+%d"%(W,H,(sw-W)//2,(sh-H)//2))
-        c=tk.Frame(t,bg=PAPER); c.pack(fill="both",expand=1,padx=2,pady=2)
-        close=tk.Label(c,text="✕",font=("Microsoft YaHei UI",12),bg=PAPER,fg=INK3,cursor="hand2")
-        close.place(relx=1.0,x=-14,y=10,anchor="ne")
-        close.bind("<Enter>",lambda e:close.config(fg=SIG))
-        close.bind("<Leave>",lambda e:close.config(fg=INK3))
+        shell=tk.Canvas(t,width=W,height=H,bg=TRANS,highlightthickness=0)
+        shell.pack(fill="both",expand=True)
+        rr(shell,11,13,W-7,H-7,r=WATER_DIALOG_RADIUS,fill="#C9C3BA",outline="")
+        rr(shell,7,7,W-11,H-11,r=WATER_DIALOG_RADIUS,fill=PAPER,outline="#E7E2DA",width=1)
+        c=tk.Frame(shell,bg=PAPER)
+        shell.create_window(W//2,H//2,window=c,width=W-38,height=H-38)
+
+        close=tk.Canvas(c,width=30,height=30,bg=PAPER,highlightthickness=0,cursor="hand2")
+        close.place(relx=1.0,x=-2,y=-2,anchor="ne")
+        def draw_close(active=False):
+            close.delete("all")
+            close.create_oval(3,3,27,27,fill="#F5EEE8" if active else "#ECE8E1",outline="")
+            close.create_text(15,15,text="×",font=("Microsoft YaHei UI",13),fill=SIG if active else INK3)
+        draw_close()
+        close.bind("<Enter>",lambda e:draw_close(True))
+        close.bind("<Leave>",lambda e:draw_close(False))
         close.bind("<Button-1>",lambda e:s._cancel())
-        tk.Label(c,text="💧",font=("Segoe UI Emoji",34),bg=PAPER).pack(pady=(26,2))
-        tk.Label(c,text="喝水啦",font=("Microsoft YaHei UI",16,"bold"),bg=PAPER,fg=INK).pack()
-        tk.Label(c,text="这次喝了多少?",font=("Microsoft YaHei UI",10),bg=PAPER,fg=INK3).pack(pady=(3,18))
+
+        tk.Label(c,text="💧",font=("Segoe UI Emoji",32),bg=PAPER).pack(pady=(12,0))
+        tk.Label(c,text="喝水啦",font=("Microsoft YaHei UI",17,"bold"),bg=PAPER,fg=INK).pack()
+        tk.Label(c,text="这次喝了多少？",font=("Microsoft YaHei UI",10),bg=PAPER,fg=INK3).pack(pady=(2,15))
         row=tk.Frame(c,bg=PAPER); row.pack()
         for lab,ml in WATER_PRESETS:
-            fr=tk.Frame(row,bg="#FFFFFF",highlightbackground=LINE,highlightthickness=1,cursor="hand2"); fr.pack(side="left",padx=6)
-            l1=tk.Label(fr,text=lab,font=("Microsoft YaHei UI",10,"bold"),bg="#FFFFFF",fg=INK,width=5); l1.pack(pady=(9,0))
-            l2=tk.Label(fr,text=str(ml)+" ml",font=("Microsoft YaHei UI",8),bg="#FFFFFF",fg=INK3); l2.pack(pady=(0,9))
-            def mk(fr,l1,l2,mm):
-                def ent(e): fr.config(bg=SIG); l1.config(bg=SIG,fg="#fff"); l2.config(bg=SIG,fg="#fff")
-                def lv(e): fr.config(bg="#FFFFFF"); l1.config(bg="#FFFFFF",fg=INK); l2.config(bg="#FFFFFF",fg=INK3)
-                def cl(e): s.val=mm; s.t.destroy()
-                for w in (fr,l1,l2): w.bind("<Enter>",ent); w.bind("<Leave>",lv); w.bind("<Button-1>",cl)
-            mk(fr,l1,l2,ml)
-        f2=tk.Frame(c,bg=PAPER); f2.pack(pady=(20,0))
+            card=tk.Canvas(row,width=67,height=62,bg=PAPER,highlightthickness=0,cursor="hand2")
+            card.pack(side="left",padx=3)
+            def draw_card(canvas,label,amount,active=False):
+                canvas.delete("all")
+                fill=SIG if active else "#FFFFFF"
+                rr(canvas,2,2,65,60,r=WATER_PRESET_RADIUS,fill=fill,outline="" if active else LINE,width=1)
+                canvas.create_text(33,23,text=label,font=("Microsoft YaHei UI",9,"bold"),fill="#fff" if active else INK)
+                canvas.create_text(33,42,text=str(amount)+" ml",font=("Microsoft YaHei UI",8),fill="#fff" if active else INK3)
+            draw_card(card,lab,ml)
+            card.bind("<Enter>",lambda e,cv=card,la=lab,mm=ml:draw_card(cv,la,mm,True))
+            card.bind("<Leave>",lambda e,cv=card,la=lab,mm=ml:draw_card(cv,la,mm,False))
+            card.bind("<Button-1>",lambda e,mm=ml:s._choose(mm))
+
+        f2=tk.Frame(c,bg=PAPER); f2.pack(pady=(18,0))
         tk.Label(f2,text="或自己填",font=("Microsoft YaHei UI",9),bg=PAPER,fg=INK3).pack(side="left")
-        s.e=tk.Entry(f2,font=("Microsoft YaHei UI",11),width=6,justify="center",bd=0,bg="#FFFFFF",highlightbackground=LINE,highlightthickness=1,relief="flat"); s.e.pack(side="left",padx=6,ipady=3)
+        entry_shell=tk.Frame(f2,bg="#FFFFFF",highlightbackground="#E1DCD4",highlightthickness=1)
+        entry_shell.pack(side="left",padx=7)
+        s.e=tk.Entry(entry_shell,font=("Microsoft YaHei UI",11),width=6,justify="center",bd=0,bg="#FFFFFF",relief="flat")
+        s.e.pack(padx=7,pady=5)
         tk.Label(f2,text="ml",bg=PAPER,fg=INK3).pack(side="left")
         s.error=tk.Label(c,text="",font=("Microsoft YaHei UI",8),bg=PAPER,fg="#B04430")
-        s.error.pack(pady=(5,0))
-        ok=tk.Button(c,text="确 定",command=s._c,font=("Microsoft YaHei UI",11,"bold"),bg=SIG,fg="#fff",activebackground="#A54A28",activeforeground="#fff",cursor="hand2",bd=0,relief="flat",takefocus=True)
-        ok.pack(fill="x",padx=26,pady=(8,0),ipady=7)
-        tk.Label(c,text="Enter 记录 · Esc 或右上 ✕ 关闭（误判时用）",font=("Microsoft YaHei UI",7),bg=PAPER,fg="#aaa69e").pack(pady=(6,0))
+        s.error.pack(pady=(4,0))
+        ok=tk.Canvas(c,width=W-78,height=44,bg=PAPER,highlightthickness=0,cursor="hand2",takefocus=1)
+        ok.pack(pady=(7,0))
+        def draw_ok(active=False):
+            ok.delete("all")
+            rr(ok,1,1,W-79,43,r=WATER_ACTION_RADIUS,fill="#A94A2B" if active else SIG,outline="")
+            ok.create_text((W-78)//2,22,text="确 定",font=("Microsoft YaHei UI",11,"bold"),fill="#FFFFFF")
+        draw_ok()
+        ok.bind("<Enter>",lambda e:draw_ok(True))
+        ok.bind("<Leave>",lambda e:draw_ok(False))
+        ok.bind("<Button-1>",lambda e:s._c())
+        tk.Label(c,text="Enter 记录 · Esc 或右上 × 关闭误判",font=("Microsoft YaHei UI",7),bg=PAPER,fg="#AAA69E").pack(pady=(6,0))
         s.e.bind("<Return>",lambda e:s._c())
         s.e.bind("<KP_Enter>",lambda e:s._c())
         s.e.bind("<Escape>",lambda e:s._cancel())
@@ -367,6 +452,9 @@ class WaterDialog:
         t.grab_set()
         t.after_idle(lambda:(s.e.focus_force(),s.e.selection_range(0,"end")))
         parent.wait_window(t)
+    def _choose(s,value):
+        s.val=value
+        s.t.destroy()
     def _c(s):
         value=parse_water_amount(s.e.get())
         if value is None:
@@ -555,6 +643,16 @@ def start_tray(pet_ref):
     def logs_item(icon, item): open_logs_folder()
     def onboarding_item(icon, item): STATE["_show_onboarding"] = True
     def manual_drink_item(icon, item): STATE["_manual_drink"] = True
+    def timelapse_item(icon,item): STATE["_toggle_timelapse"] = True
+    def skin_menu_item(skin):
+        def select_skin(icon,item):
+            STATE["_skin_request"]=skin.skin_id
+        return pystray.MenuItem(
+            skin.label,
+            select_skin,
+            checked=lambda item,skin_id=skin.skin_id:STATE.get("skin_id")==skin_id,
+            radio=True,
+        )
     def center_nudge_item(icon, item):
         if set_center_nudge_enabled(not STATE["center_nudge_enabled"]):
             try: icon.update_menu()
@@ -573,13 +671,20 @@ def start_tray(pet_ref):
     def quit_item(icon, item):
         STATE["_quit"] = True; icon.stop()
     interval_menu=pystray.Menu(*(interval_menu_item(value) for value in WATER_REMINDER_OPTIONS))
+    skin_menu=pystray.Menu(*(skin_menu_item(skin) for skin in skin_system.discover_skins(cat_sprites.asset_root())))
     menu = pystray.Menu(
         pystray.MenuItem("手动记录喝水", manual_drink_item),
+        pystray.MenuItem(
+            "延时摄影（开始 / 停止保存）",
+            timelapse_item,
+            checked=lambda item:STATE.get("timelapse_active",False),
+        ),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("看今日报告", report_item),
         pystray.MenuItem("打开日志文件夹", logs_item),
         pystray.MenuItem("新手教程", onboarding_item),
         pystray.MenuItem("喝水提醒间隔", interval_menu),
+        pystray.MenuItem("猫咪皮肤",skin_menu),
         pystray.MenuItem(
             "久坐中央叩屏",
             center_nudge_item,
@@ -622,6 +727,7 @@ class Pet:
         s._status_text = None
         s._status_photo = None
         s._onboarding_window = None
+        s._skin_id = STATE.get("skin_id",skin_system.DEFAULT_SKIN_ID)
         s._center_nudge_active = False
         s._center_nudge_started = 0.0
         s._center_nudge_origin = None
@@ -637,7 +743,7 @@ class Pet:
 
         s.canvas = tk.Canvas(r, width=s.W, height=s.H_OPEN, bg=TRANS, highlightthickness=0)
         s.canvas.pack()
-        sprite_images = cat_sprites.load_sprite_images(s.CAT_SPRITE_SIZE)
+        sprite_images = cat_sprites.load_sprite_images(s.CAT_SPRITE_SIZE,skin_id=s._skin_id)
         s._cat_photos = {key: ImageTk.PhotoImage(image, master=r) for key, image in sprite_images.items()}
         knock_images = cat_sprites.load_knock_frames(s.CAT_SPRITE_SIZE)
         s._knock_photos = {
@@ -664,7 +770,7 @@ class Pet:
         s._photo = None; s._photo_frame_ref = None; s._dragging = False
         s._last_screen_check = 0.0
 
-        threading.Thread(target=loop, daemon=True).start()
+        threading.Thread(target=detection_supervisor, daemon=True).start()
         threading.Thread(target=start_tray, args=(s,), daemon=True).start()
         s.tick()
         if should_show_onboarding(SETTINGS_PATH):
@@ -725,6 +831,10 @@ class Pet:
     def _menu_close(s, e):
         m = tk.Menu(s.r, tearoff=0)
         m.add_command(label="手动记录喝水", command=lambda: s._request_water_dialog(immediate=True))
+        m.add_command(
+            label="停止并保存延时摄影" if STATE.get("timelapse_active") else "开始延时摄影",
+            command=s._toggle_timelapse,
+        )
         m.add_separator()
         m.add_command(label="看今日报告", command=open_report)
         m.add_command(label="打开日志文件夹", command=open_logs_folder)
@@ -739,6 +849,16 @@ class Pet:
                 command=lambda value=minutes:set_water_reminder(value),
             )
         m.add_cascade(label="喝水提醒间隔",menu=reminder_menu)
+        skin_menu=tk.Menu(m,tearoff=0)
+        skin_value=tk.StringVar(value=STATE.get("skin_id",skin_system.DEFAULT_SKIN_ID))
+        for skin in skin_system.discover_skins(cat_sprites.asset_root()):
+            skin_menu.add_radiobutton(
+                label=skin.label,
+                variable=skin_value,
+                value=skin.skin_id,
+                command=lambda skin_id=skin.skin_id:s._set_skin(skin_id),
+            )
+        m.add_cascade(label="猫咪皮肤",menu=skin_menu)
         center_value=tk.BooleanVar(value=STATE.get("center_nudge_enabled",True))
         m.add_checkbutton(
             label="久坐中央叩屏",
@@ -795,10 +915,55 @@ class Pet:
 
     def _quit(s):
         STATE["_quit"] = True
+        result=TIMELAPSE.stop()
+        STATE["timelapse_active"]=False
+        if result is not None:
+            STATE["timelapse_last_path"]=str(result.path)
+            STATE["timelapse_saved_until"]=time.time()+12.0
         try:
             if s._tray: s._tray.stop()
         except Exception: pass
         s.r.destroy()
+
+    def _toggle_timelapse(s):
+        if TIMELAPSE.active:
+            result=TIMELAPSE.stop()
+            STATE["timelapse_active"]=False
+            STATE["timelapse_frames"]=0
+            if result is not None:
+                STATE["timelapse_last_path"]=str(result.path)
+                STATE["timelapse_saved_until"]=time.time()+12.0
+        else:
+            TIMELAPSE.start()
+            STATE["timelapse_active"]=True
+            STATE["timelapse_frames"]=0
+            STATE["timelapse_saved_until"]=0.0
+            STATE["timelapse_error"]=None
+        try:
+            if s._tray: s._tray.update_menu()
+        except Exception:
+            pass
+        s.redraw()
+
+    def _set_skin(s,skin_id):
+        try:
+            sprite_images=cat_sprites.load_sprite_images(s.CAT_SPRITE_SIZE,skin_id=skin_id)
+            saved=skin_system.save_skin(SETTINGS_PATH,cat_sprites.asset_root(),skin_id)
+        except (OSError,ValueError,FileNotFoundError):
+            return False
+        s._cat_photos={
+            key:ImageTk.PhotoImage(image,master=s.r)
+            for key,image in sprite_images.items()
+        }
+        s._skin_id=saved
+        STATE["skin_id"]=saved
+        s._status_text=None
+        try:
+            if s._tray: s._tray.update_menu()
+        except Exception:
+            pass
+        s.redraw()
+        return True
 
     def _request_water_dialog(s, immediate=False):
         """收拢的喝水弹窗触发入口。自动检测 immediate=False，走 DRINK_ANIM_SEC 延迟；
@@ -917,12 +1082,22 @@ class Pet:
                 )
 
     def tick(s):
+        heartbeat=STATE.get("detector_heartbeat",0)
+        if time.time()-heartbeat>3.0 and STATE.get("mode") not in ("paused","away"):
+            STATE.update(mode="away",frame=None)
         if STATE.get("_toggle_eyes"):
             STATE["_toggle_eyes"] = False
             s.toggle_eyes()
         if STATE.get("_show_onboarding"):
             STATE["_show_onboarding"] = False
             s.show_onboarding()
+        if STATE.get("_toggle_timelapse"):
+            STATE["_toggle_timelapse"]=False
+            s._toggle_timelapse()
+        requested_skin=STATE.get("_skin_request")
+        if requested_skin:
+            STATE["_skin_request"]=None
+            s._set_skin(requested_skin)
         if STATE.get("_quit"):
             s._quit(); return
 
@@ -1031,12 +1206,16 @@ class Pet:
         nudge_active=now < STATE.get("nudge_until",0) and mm in ("seated","over")
         if nudge_active:
             lines.append("💧 喝口水吧~")
+        if STATE.get("timelapse_active"):
+            lines.append("⏱ 延时摄影 · %d 帧"%STATE.get("timelapse_frames",0))
+        elif now < STATE.get("timelapse_saved_until",0):
+            lines.append("✓ 延时摄影已保存到日志")
         full = "\n".join(lines)
 
         # 气泡尺寸：文字顶 12 + 每行 ~17 + 分隔线 6 + 按钮 20 + 底 8
         # 2 行: 12 + 34 + 6 + 20 + 8 = 80  →  86 给点余量
         # 3 行: 12 + 51 + 6 + 20 + 8 = 97  → 104
-        bubble_h = 104 if len(lines)>2 else 86
+        bubble_h = 86 + max(0,len(lines)-2)*18
         bubble_top = detail_bubble_top(cat_cy, bubble_h, mm)
         if s._details_visible:
             s._btn_boxes = draw_text_bubble(c, cx, bubble_top, w=s.BUBBLE_W, h=bubble_h, text=full, bg=bg)
@@ -1087,6 +1266,10 @@ class Pet:
             blink=s.blink,
             cup_state=cup_state,
             resting=(not s._details_visible and mm=="seated" and cup_state is None),
+        )
+        sprite_key = cat_sprites.enforce_display_invariants(
+            sprite_key,
+            eyes_open=s.eyes_open,
         )
 
         if not s._details_visible:

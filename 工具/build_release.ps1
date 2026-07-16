@@ -18,7 +18,9 @@ if (-not (Test-Path -LiteralPath $PythonExe)) {
     throw "Python executable not found: $PythonExe"
 }
 
-$releaseParent = (Resolve-Path (Join-Path $repoRoot "_release_stage")).Path
+$releaseParentPath = Join-Path $repoRoot "_release_stage"
+New-Item -ItemType Directory -Force -Path $releaseParentPath | Out-Null
+$releaseParent = (Resolve-Path $releaseParentPath).Path
 $candidate = [System.IO.Path]::GetFullPath($releaseRoot)
 if (-not $candidate.StartsWith(
     $releaseParent + [System.IO.Path]::DirectorySeparatorChar,
@@ -69,6 +71,8 @@ New-Item -ItemType Directory -Force -Path (
     Join-Path $packageRoot "assets\cat_animations\knock"
 ), (
     Join-Path $packageRoot "assets\cat_animations\roll"
+), (
+    Join-Path $packageRoot "assets\skins"
 ) | Out-Null
 
 Copy-Item -LiteralPath (Join-Path $repoRoot "models\yolov4-tiny.cfg") -Destination (Join-Path $packageRoot "models")
@@ -79,6 +83,18 @@ Copy-Item -LiteralPath (Join-Path $repoRoot "assets\cat_animations\knock\frame_0
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets\cat_animations\knock\frame_01.png") -Destination (Join-Path $packageRoot "assets\cat_animations\knock")
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets\cat_animations\knock\frame_02.png") -Destination (Join-Path $packageRoot "assets\cat_animations\knock")
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets\cat_animations\roll\roll_ball.png") -Destination (Join-Path $packageRoot "assets\cat_animations\roll")
+Get-ChildItem -LiteralPath (Join-Path $repoRoot "assets\skins") -Directory |
+    ForEach-Object {
+        $skinTarget = Join-Path (Join-Path $packageRoot "assets\skins") $_.Name
+        New-Item -ItemType Directory -Force -Path (
+            Join-Path $skinTarget "cat_sprites"
+        ) | Out-Null
+        if (Test-Path -LiteralPath (Join-Path $_.FullName "skin.json")) {
+            Copy-Item -LiteralPath (Join-Path $_.FullName "skin.json") -Destination $skinTarget
+        }
+        Get-ChildItem -LiteralPath (Join-Path $_.FullName "cat_sprites") -File |
+            Copy-Item -Destination (Join-Path $skinTarget "cat_sprites") -Force
+    }
 Copy-Item -LiteralPath $iconPath -Destination (Join-Path $packageRoot "assets\dingdingmeow.ico")
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $repoRoot "版本说明.md") -Destination $packageRoot

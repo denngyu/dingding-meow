@@ -5,6 +5,7 @@ import numpy as np
 
 CUP_CLASSES = {39, 41}
 CUP_MIN_CONFIDENCE = 0.28
+CUP_MIN_OBJECTNESS = 0.35
 
 
 def decode_cup_boxes(outputs, frame_width, frame_height, min_confidence=CUP_MIN_CONFIDENCE):
@@ -14,7 +15,12 @@ def decode_cup_boxes(outputs, frame_width, frame_height, min_confidence=CUP_MIN_
             scores = detection[5:]
             class_id = int(np.argmax(scores))
             confidence = float(scores[class_id])
-            if class_id not in CUP_CLASSES or confidence < min_confidence:
+            objectness = float(detection[4])
+            if (
+                class_id not in CUP_CLASSES
+                or confidence < min_confidence
+                or objectness < CUP_MIN_OBJECTNESS
+            ):
                 continue
             center_x = float(detection[0]) * frame_width
             center_y = float(detection[1]) * frame_height
@@ -63,13 +69,21 @@ def is_cup_near_face(face, cup):
     cup_bottom = cup_y + cup_height
     if cup_height < face_height * 0.30:
         return False
-    if cup_width / cup_height > 2.2:
+    aspect_ratio = cup_width / cup_height
+    if aspect_ratio < 0.20 or aspect_ratio > 1.65:
+        return False
+    if cup_width > face_width * 1.10 or cup_height > face_height * 1.65:
         return False
     if cup_center_y < face_y + face_height * 0.42:
         return False
     if cup_bottom < face_y + face_height * 0.65:
         return False
     if cup_center_y - (face_y + face_height) > face_height * 0.60:
+        return False
+    # 桌面垃圾桶通常落在扩展人脸框内，但顶部仍明显低于下巴；
+    # 真正举到嘴边的杯子顶部应与下脸重叠，或至多相差很小距离。
+    face_bottom = face_y + face_height
+    if cup_y - face_bottom > face_height * 0.18:
         return False
 
     expanded_x = face_x - face_width * 0.5

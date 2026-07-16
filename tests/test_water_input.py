@@ -1,6 +1,13 @@
 import unittest
 
-from water_input import WATER_DIALOG_HEIGHT, WATER_PRESETS, parse_water_amount
+from water_input import (
+    WATER_ACTION_RADIUS,
+    WATER_DIALOG_HEIGHT,
+    WATER_DIALOG_RADIUS,
+    WATER_PRESET_RADIUS,
+    WATER_PRESETS,
+    parse_water_amount,
+)
 
 
 class WaterInputTests(unittest.TestCase):
@@ -25,6 +32,11 @@ class WaterInputTests(unittest.TestCase):
 
     def test_dialog_is_tall_enough_to_show_the_submit_button(self):
         self.assertGreaterEqual(WATER_DIALOG_HEIGHT, 340)
+
+    def test_dialog_uses_generous_rounded_corners(self):
+        self.assertGreaterEqual(WATER_DIALOG_RADIUS, 22)
+        self.assertGreaterEqual(WATER_PRESET_RADIUS, 12)
+        self.assertGreaterEqual(WATER_ACTION_RADIUS, 14)
 
 
 if __name__ == "__main__":

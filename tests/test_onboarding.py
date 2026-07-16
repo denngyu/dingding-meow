@@ -21,6 +21,9 @@ class OnboardingTests(unittest.TestCase):
             "30 秒",
             "滚到中央",
             "关闭中央提醒",
+            "暖橘",
+            "延时摄影",
+            "3 分钟",
         ):
             self.assertIn(phrase, combined)
 

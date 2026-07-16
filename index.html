@@ -99,14 +99,14 @@ section.block{padding:82px 0}
 .lead{font-size:16px;color:var(--ink-2)}
 
 /* 功能网格 6 张 3x2 */
-.grid6{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line)}
-.cell{padding:26px 22px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface)}
-.cell:nth-child(3n){border-right:none}
-.cell:nth-child(n+4){border-bottom:none}
+.grid6{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line)}
+.cell{padding:24px 20px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface)}
+.cell:nth-child(4n){border-right:none}
+.cell:nth-child(n+5){border-bottom:none}
 .cell .em{font-size:22px;font-family:var(--mono);color:var(--signal);font-weight:700}
 .cell h3{font-size:16.5px;font-weight:700;margin:10px 0 7px}
 .cell p{font-size:13.5px;color:var(--ink-2)}
-@media(max-width:900px){.grid6{grid-template-columns:repeat(2,1fr)}.cell:nth-child(3n){border-right:1px solid var(--line)}.cell:nth-child(2n){border-right:none}.cell:nth-child(n+4){border-bottom:1px solid var(--line)}.cell:nth-child(n+5){border-bottom:none}}
+@media(max-width:900px){.grid6{grid-template-columns:repeat(2,1fr)}.cell:nth-child(4n){border-right:1px solid var(--line)}.cell:nth-child(2n){border-right:none}.cell:nth-child(n+5){border-bottom:1px solid var(--line)}.cell:nth-child(n+7){border-bottom:none}}
 @media(max-width:560px){.grid6{grid-template-columns:1fr}.cell{border-right:none!important}.cell:nth-child(n+2){border-bottom:1px solid var(--line)}.cell:last-child{border-bottom:none}}
 
 /* 报告预览 section */
@@ -244,11 +244,11 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
 
 <header class="hero"><div class="wrap hero-grid">
   <div>
-    <span class="eyebrow">Local-only · v1.4 · Windows 桌面小猫</span>
+    <span class="eyebrow">Local-only · v1.5 · Windows 桌面小猫</span>
     <h1>一只小猫蹲桌角，<br>替你盯住 <span class="sig">久坐、喝水、健康</span></h1>
     <p class="sub">看你坐了多久、有没有喝水；锁屏立即算离开，短暂丢脸 30 秒内不断档。坐满 1 小时，小猫会缩成毛球滚到中央叩屏提醒。画面不出这台电脑。</p>
     <div class="hero-ctas">
-      <a class="btn" href="https://github.com/denngyu/dingding-meow/releases/latest/download/DingDingMeow-windows.zip">⬇ 下载 v1.4 (Windows)</a>
+      <a class="btn" href="https://github.com/denngyu/dingding-meow/releases/latest/download/DingDingMeow-windows.zip">⬇ 下载 v1.5 (Windows)</a>
       <a class="btn btn-ghost" href="https://github.com/denngyu/dingding-meow" target="_blank">在 GitHub 查看</a>
     </div>
     <div class="stat-strip">
@@ -287,7 +287,7 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
 
 <section class="block" id="f"><div class="wrap">
   <div class="sec-head">
-    <span class="eyebrow">六件事，一只猫全管</span>
+    <span class="eyebrow">八件事，一只猫全管</span>
     <div class="h2">平时守在桌角，该催你时会自己滚过来</div>
     <p class="lead">全部本地跑，不联网、不上传、不写云。</p>
   </div>
@@ -298,6 +298,8 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
     <div class="cell"><div class="em">20–90</div><h3>饮水目标 + 可调提醒</h3><p>每天 2000ml 目标；喝水提醒默认 30 分钟，可选 20 / 45 / 60 / 90 分钟，并从最近喝水或提醒重新计时。</p></div>
     <div class="cell"><div class="em">👁</div><h3>低频本地预览</h3><p>默认闭眼、低频抽帧省 CPU。点眼睛才展开摄像头画面；所有识别只在本机内存中完成，不上传、不存视频。</p></div>
     <div class="cell"><div class="em">📊</div><h3>日志与每日健康报告</h3><p>气泡或托盘一键打开：饮水趋势、坐时长、久坐超限次数和 7 天对比。日志与自包含报告都留在本机。</p></div>
+    <div class="cell"><div class="em">🎞</div><h3>延时摄影（新）</h3><p>默认关闭，右键或托盘手动开始才录。每 60 秒抓一帧，停止时在本地合成 MP4；锁屏、离座、遮挡和暂停时不抓帧。</p></div>
+    <div class="cell"><div class="em">🎨</div><h3>猫咪皮肤（新）</h3><p>右键或托盘切换猫的样子，内置银灰经典和暖橘元气两套，日常八个状态整套跟随。选择记在本地设置里。</p></div>
   </div>
 </div></section>
 
@@ -402,6 +404,6 @@ footer{padding:32px 0;border-top:1px solid var(--line);font-family:var(--mono);f
   </div>
 </div></section>
 
-<footer>盯盯喵 v1.4 · DINGDING-MEOW · 中央叩屏 + 久坐 + 离座 + 喝水 + 报告 · 画面不出你的电脑</footer>
+<footer>盯盯喵 v1.5 · DINGDING-MEOW · 中央叩屏 + 久坐 + 离座 + 喝水 + 延时摄影 + 皮肤 · 画面不出你的电脑</footer>
 
 </body></html>
