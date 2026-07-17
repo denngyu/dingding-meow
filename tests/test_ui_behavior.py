@@ -17,6 +17,10 @@ class UiBehaviorTests(unittest.TestCase):
             "💧 喝水 · 久坐32分",
         )
 
+    def test_stopped_or_unavailable_camera_invites_a_click_to_restart(self):
+        self.assertEqual(compact_status("camera_off"), "点击开始检测")
+        self.assertEqual(compact_status("paused"), "点击开始检测")
+
     def test_details_open_from_cat_then_stay_open_over_panel(self):
         cat = (46, 260, 190, 404)
         panel = (13, 190, 223, 404)
@@ -36,6 +40,11 @@ class UiBehaviorTests(unittest.TestCase):
     def test_canvas_no_longer_draws_the_purple_context_hint(self):
         source = (Path(__file__).resolve().parents[1] / "pet.py").read_text(encoding="utf-8")
         self.assertNotIn('text="右键菜单"', source)
+
+    def test_camera_off_cat_click_restarts_detection(self):
+        source = (Path(__file__).resolve().parents[1] / "pet.py").read_text(encoding="utf-8")
+        self.assertIn('if STATE.get("mode") in ("camera_off","paused"):', source)
+        self.assertIn('start_detection(); return', source)
 
     def test_monitor_header_explains_the_low_cpu_preview(self):
         source = (Path(__file__).resolve().parents[1] / "pet.py").read_text(encoding="utf-8")

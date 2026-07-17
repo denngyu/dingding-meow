@@ -58,7 +58,7 @@ def select_sprite(mood="seated", eyes_open=False, blink=False, cup_state=None, r
         return "over"
     if mood in ("away", "blocked"):
         return "away"
-    if mood == "paused":
+    if mood in ("paused", "camera_off"):
         return "sleep"
     if mood == "init":
         return "tail"
@@ -93,8 +93,50 @@ def load_sprite_images(size=DEFAULT_SPRITE_SIZE, skin_id=skin_system.DEFAULT_SKI
                 lambda value: 255 if value >= COLOR_KEY_ALPHA_CUTOFF else 0
             )
             image.putalpha(alpha)
+            image = _keep_largest_alpha_component(image)
             images[key] = image
     return images
+
+
+def _keep_largest_alpha_component(image):
+    """Remove disconnected sprite-sheet fragments after runtime resizing."""
+    image = image.convert("RGBA")
+    width, height = image.size
+    alpha = image.getchannel("A").tobytes()
+    visited = bytearray(width * height)
+    largest = []
+
+    for start, value in enumerate(alpha):
+        if not value or visited[start]:
+            continue
+        component = []
+        stack = [start]
+        visited[start] = 1
+        while stack:
+            index = stack.pop()
+            component.append(index)
+            x = index % width
+            y = index // width
+            if x and alpha[index - 1] and not visited[index - 1]:
+                visited[index - 1] = 1
+                stack.append(index - 1)
+            if x + 1 < width and alpha[index + 1] and not visited[index + 1]:
+                visited[index + 1] = 1
+                stack.append(index + 1)
+            if y and alpha[index - width] and not visited[index - width]:
+                visited[index - width] = 1
+                stack.append(index - width)
+            if y + 1 < height and alpha[index + width] and not visited[index + width]:
+                visited[index + width] = 1
+                stack.append(index + width)
+        if len(component) > len(largest):
+            largest = component
+
+    clean_alpha = bytearray(width * height)
+    for index in largest:
+        clean_alpha[index] = 255
+    image.putalpha(Image.frombytes("L", image.size, bytes(clean_alpha)))
+    return image
 
 
 def _color_key_safe(image):

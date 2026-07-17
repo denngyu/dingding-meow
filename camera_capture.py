@@ -3,6 +3,27 @@
 
 CAMERA_RETRY_SEC = 1.0
 CAMERA_WAKE_DELAY_SEC = 1.5
+CAMERA_READ_FAILURES_BEFORE_MANUAL_RESTART = 8
+CAMERA_NO_SIGNAL_FRAMES_BEFORE_MANUAL_RESTART = 3
+CAMERA_NO_SIGNAL_MEAN_MAX = 3.0
+CAMERA_NO_SIGNAL_STD_MAX = 3.0
+
+
+def is_camera_signal_missing(frame):
+    """True only for an empty/digital-black feed, not an ordinarily dark scene."""
+    if frame is None or not getattr(frame, "size", 0):
+        return True
+    return (
+        float(frame.mean()) <= CAMERA_NO_SIGNAL_MEAN_MAX
+        and float(frame.std()) <= CAMERA_NO_SIGNAL_STD_MAX
+    )
+
+
+def camera_needs_manual_restart(read_failures=0, no_signal_frames=0):
+    return (
+        int(read_failures) >= CAMERA_READ_FAILURES_BEFORE_MANUAL_RESTART
+        or int(no_signal_frames) >= CAMERA_NO_SIGNAL_FRAMES_BEFORE_MANUAL_RESTART
+    )
 
 
 class CameraCapture:

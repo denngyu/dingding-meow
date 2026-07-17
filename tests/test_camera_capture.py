@@ -1,6 +1,14 @@
 import unittest
 
-from camera_capture import CAMERA_RETRY_SEC, CAMERA_WAKE_DELAY_SEC, CameraCapture
+import numpy as np
+
+from camera_capture import (
+    CAMERA_RETRY_SEC,
+    CAMERA_WAKE_DELAY_SEC,
+    CameraCapture,
+    camera_needs_manual_restart,
+    is_camera_signal_missing,
+)
 
 
 class FakeCapture:
@@ -32,6 +40,20 @@ class FakeCV2:
 
 
 class CameraCaptureTests(unittest.TestCase):
+    def test_digital_black_feed_is_distinguished_from_an_ordinary_dark_scene(self):
+        digital_black = np.zeros((48, 64, 3), dtype=np.uint8)
+        dark_scene = np.zeros((48, 64, 3), dtype=np.uint8)
+        dark_scene[:, ::2] = 8
+
+        self.assertTrue(is_camera_signal_missing(digital_black))
+        self.assertFalse(is_camera_signal_missing(dark_scene))
+
+    def test_camera_failure_requires_a_short_confirmation_before_manual_restart(self):
+        self.assertFalse(camera_needs_manual_restart(read_failures=7))
+        self.assertTrue(camera_needs_manual_restart(read_failures=8))
+        self.assertFalse(camera_needs_manual_restart(no_signal_frames=2))
+        self.assertTrue(camera_needs_manual_restart(no_signal_frames=3))
+
     def test_defaults_leave_time_for_windows_to_restore_the_device(self):
         self.assertGreaterEqual(CAMERA_WAKE_DELAY_SEC, 1.0)
         self.assertGreaterEqual(CAMERA_RETRY_SEC, 0.5)

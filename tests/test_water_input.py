@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from water_input import (
     WATER_ACTION_RADIUS,
@@ -14,7 +15,7 @@ class WaterInputTests(unittest.TestCase):
     def test_presets_match_calibrated_amounts(self):
         self.assertEqual(
             WATER_PRESETS,
-            (("一口", 50), ("半杯", 150), ("一杯", 300), ("一瓶", 500)),
+            (("一口", 50), ("一大口", 100), ("半杯", 150), ("一杯", 300)),
         )
 
     def test_presets_are_valid_manual_amounts(self):
@@ -31,7 +32,13 @@ class WaterInputTests(unittest.TestCase):
                 self.assertIsNone(parse_water_amount(value))
 
     def test_dialog_is_tall_enough_to_show_the_submit_button(self):
-        self.assertGreaterEqual(WATER_DIALOG_HEIGHT, 340)
+        self.assertGreaterEqual(WATER_DIALOG_HEIGHT, 420)
+
+    def test_borderless_dialog_has_drag_handlers(self):
+        source = (Path(__file__).resolve().parents[1] / "pet.py").read_text(encoding="utf-8")
+        self.assertIn("def _drag_start(s,event):", source)
+        self.assertIn("def _drag_move(s,event):", source)
+        self.assertIn('widget.bind("<B1-Motion>",s._drag_move)', source)
 
     def test_dialog_uses_generous_rounded_corners(self):
         self.assertGreaterEqual(WATER_DIALOG_RADIUS, 22)

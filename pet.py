@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import center_nudge
 import cat_visual
 import cat_sprites
-from camera_capture import CameraCapture
+from camera_capture import CameraCapture, camera_needs_manual_restart, is_camera_signal_missing
 import report_icon
 import skin_system
 import timelapse
@@ -63,6 +63,7 @@ TEST = len(sys.argv)>1 and sys.argv[1]=="test"
 if TEST: SIT_LIMIT_MIN, GRACE_SEC, OVER_GRACE = 0.7, 8, 3
 
 LOG_DIR=os.path.join(_self,"logs"); os.makedirs(LOG_DIR, exist_ok=True)
+TIMELAPSE_DIR=os.path.join(LOG_DIR,"timelapse")
 SETTINGS_PATH=os.path.join(_self,"settings.json")
 def _today(): return datetime.now().strftime("%Y%m%d")
 def wlog_path(day=None): return os.path.join(LOG_DIR,"water_%s.csv"%(day or _today()))
@@ -76,7 +77,7 @@ shutil.copy(os.path.join(m,"yolov4-tiny.cfg"),cfg); shutil.copy(os.path.join(m,"
 net=cv2.dnn.readNetFromDarknet(cfg,wp); LN=net.getUnconnectedOutLayersNames()
 TIMELAPSE=timelapse.TimelapseRecorder(
     cv2,
-    os.path.join(LOG_DIR,"timelapse"),
+    TIMELAPSE_DIR,
 )
 
 def face_boxes(gray):
@@ -138,6 +139,11 @@ def open_logs_folder():
     try: os.startfile(LOG_DIR)
     except Exception: pass
 
+def open_timelapse_folder():
+    os.makedirs(TIMELAPSE_DIR, exist_ok=True)
+    try: os.startfile(TIMELAPSE_DIR)
+    except Exception: pass
+
 # ─────────── 状态 ───────────
 _initial_drink_ts=last_drink_ts_today()
 _started_at=time.time()
@@ -153,6 +159,7 @@ STATE={
     "skin_id":skin_system.load_skin(SETTINGS_PATH,cat_sprites.asset_root()),
     "detector_heartbeat":time.time(),
     "detector_error":None,
+    "camera_off":False,
     "timelapse_active":False,
     "timelapse_frames":0,
     "timelapse_last_path":None,
@@ -172,6 +179,17 @@ def set_water_reminder(minutes):
     return True
 
 
+def start_detection():
+    STATE.update(paused=False,camera_off=False,mode="init",frame=None)
+
+
+def toggle_detection():
+    if STATE.get("paused") or STATE.get("camera_off"):
+        start_detection()
+    else:
+        STATE.update(paused=True,camera_off=False)
+
+
 def set_center_nudge_enabled(enabled):
     try: enabled=center_nudge.save_enabled(SETTINGS_PATH,enabled)
     except OSError: return False
@@ -181,6 +199,7 @@ def set_center_nudge_enabled(enabled):
 def loop():
     camera=CameraCapture(cv2,CAM_INDEX)
     last_seen=away_start=None; sit_start=None; session_away_start=None; was_drinking=False; prev_mode="init"
+    read_failures=no_signal_frames=0
     while True:
         if STATE["_quit"]:
             camera.close()
@@ -190,6 +209,7 @@ def loop():
         locked=is_session_locked()
         camera.set_locked(locked,now)
         if locked:
+            read_failures=no_signal_frames=0
             if prev_mode in ("seated","over") and sit_start is not None:
                 slog_write(sit_start,now,STATE["over_flag"])
             sit_start=None; session_away_start=None; last_seen=None; was_drinking=False; STATE["cup_hits"]=0
@@ -200,11 +220,14 @@ def loop():
             time.sleep(CHECK_EVERY)
             continue
         STATE["locked"]=False
-        if STATE["paused"]:
+        if STATE["paused"] or STATE.get("camera_off"):
             camera.suspend(now,retry_delay=0.5)
-            STATE["mode"]="paused"; time.sleep(0.5); continue
+            STATE["mode"]="camera_off" if STATE.get("camera_off") else "paused"
+            time.sleep(0.5); continue
         ok,fr=camera.read(now)
         if not ok or fr is None:
+            read_failures+=1
+            no_signal_frames=0
             now=time.time()
             if away_start is None: away_start=last_seen if last_seen else now
             if sit_start is not None and session_away_start is None:
@@ -218,15 +241,37 @@ def loop():
                 slog_write(sit_start,session_away_start,STATE["over_flag"])
                 sit_start=None; session_away_start=None
                 STATE["sit_session_start"]=None
+            needs_restart=camera_needs_manual_restart(read_failures=read_failures)
+            if needs_restart and sit_start is not None:
+                slog_write(sit_start,session_away_start or now,STATE["over_flag"])
+                sit_start=None; session_away_start=None
+                STATE["sit_session_start"]=None
+                camera.suspend(now,retry_delay=0.5)
             kept_sit=now-sit_start if sit_start is not None else 0
             STATE.update(
-                mode="away",
+                mode="camera_off" if needs_restart else "away",
+                camera_off=needs_restart,
                 locked=False,
                 away=now-away_start,
                 sit=kept_sit,
                 frame=None,
             )
-            prev_mode="away"
+            prev_mode=STATE["mode"]
+            time.sleep(CHECK_EVERY)
+            continue
+        read_failures=0
+        if is_camera_signal_missing(fr):
+            no_signal_frames+=1
+        else:
+            no_signal_frames=0
+        if camera_needs_manual_restart(no_signal_frames=no_signal_frames):
+            if prev_mode in ("seated","over") and sit_start is not None:
+                slog_write(sit_start,now,STATE["over_flag"])
+            sit_start=None; session_away_start=None; last_seen=None; was_drinking=False
+            STATE["cup_hits"]=0; STATE["sit_session_start"]=None
+            camera.suspend(now,retry_delay=0.5)
+            STATE.update(mode="camera_off",camera_off=True,frame=None,sit=0)
+            prev_mode="camera_off"
             time.sleep(CHECK_EVERY)
             continue
         gray=cv2.cvtColor(fr,cv2.COLOR_BGR2GRAY); now=time.time()
@@ -378,10 +423,24 @@ def draw_video_bubble(c, cx, cy_top, w, h, photo):
     c.create_line(tx-6, y2, tx+6, y2, fill="#1A1B18", width=3)
 
 LOOKS_BG = {"seated":"#FFFFFF", "over":"#FBE3E0", "away":"#EDEDE8",
-            "blocked":"#EDEDE8", "init":"#FFFFFF", "paused":"#EDEDE8"}
+            "blocked":"#EDEDE8", "camera_off":"#EDEDE8",
+            "init":"#FFFFFF", "paused":"#EDEDE8"}
 
 # ─────────── 喝水对话框 ───────────
 class WaterDialog:
+    def _drag_start(s,event):
+        s._drag_origin=(event.x_root,event.y_root,s.t.winfo_x(),s.t.winfo_y())
+
+    def _drag_move(s,event):
+        start_x,start_y,window_x,window_y=s._drag_origin
+        s.t.geometry("+%d+%d"%(window_x+event.x_root-start_x,window_y+event.y_root-start_y))
+
+    def _make_draggable(s,*widgets):
+        for widget in widgets:
+            widget.configure(cursor="fleur")
+            widget.bind("<ButtonPress-1>",s._drag_start)
+            widget.bind("<B1-Motion>",s._drag_move)
+
     def __init__(s,parent):
         s.val=None
         t=tk.Toplevel(parent); s.t=t; t.overrideredirect(1); t.attributes("-topmost",1); t.configure(bg=TRANS)
@@ -407,9 +466,12 @@ class WaterDialog:
         close.bind("<Leave>",lambda e:draw_close(False))
         close.bind("<Button-1>",lambda e:s._cancel())
 
-        tk.Label(c,text="💧",font=("Segoe UI Emoji",32),bg=PAPER).pack(pady=(12,0))
-        tk.Label(c,text="喝水啦",font=("Microsoft YaHei UI",17,"bold"),bg=PAPER,fg=INK).pack()
-        tk.Label(c,text="这次喝了多少？",font=("Microsoft YaHei UI",10),bg=PAPER,fg=INK3).pack(pady=(2,15))
+        icon=tk.Label(c,text="💧",font=("Segoe UI Emoji",32),bg=PAPER)
+        icon.pack(pady=(12,0))
+        title=tk.Label(c,text="喝水啦",font=("Microsoft YaHei UI",17,"bold"),bg=PAPER,fg=INK)
+        title.pack()
+        subtitle=tk.Label(c,text="这次喝了多少？",font=("Microsoft YaHei UI",10),bg=PAPER,fg=INK3)
+        subtitle.pack(pady=(2,15))
         row=tk.Frame(c,bg=PAPER); row.pack()
         for lab,ml in WATER_PRESETS:
             card=tk.Canvas(row,width=67,height=62,bg=PAPER,highlightthickness=0,cursor="hand2")
@@ -444,7 +506,9 @@ class WaterDialog:
         ok.bind("<Enter>",lambda e:draw_ok(True))
         ok.bind("<Leave>",lambda e:draw_ok(False))
         ok.bind("<Button-1>",lambda e:s._c())
-        tk.Label(c,text="Enter 记录 · Esc 或右上 × 关闭误判",font=("Microsoft YaHei UI",7),bg=PAPER,fg="#AAA69E").pack(pady=(6,0))
+        hint=tk.Label(c,text="Enter 记录 · Esc 或右上 × 关闭误判",font=("Microsoft YaHei UI",7),bg=PAPER,fg="#AAA69E")
+        hint.pack(pady=(6,8))
+        s._make_draggable(shell,c,icon,title,subtitle,hint)
         s.e.bind("<Return>",lambda e:s._c())
         s.e.bind("<KP_Enter>",lambda e:s._c())
         s.e.bind("<Escape>",lambda e:s._cancel())
@@ -637,10 +701,11 @@ def start_tray(pet_ref):
     except Exception: return
     icon_img = make_tray_icon()
     def eyes_item(icon, item): STATE["_toggle_eyes"] = True
-    def pause_item(icon, item): STATE["paused"] = not STATE["paused"]
+    def pause_item(icon, item): toggle_detection()
     def autostart_item(icon, item): set_autostart(not is_autostart_on())
     def report_item(icon, item): open_report()
     def logs_item(icon, item): open_logs_folder()
+    def view_timelapse_item(icon, item): open_timelapse_folder()
     def onboarding_item(icon, item): STATE["_show_onboarding"] = True
     def manual_drink_item(icon, item): STATE["_manual_drink"] = True
     def timelapse_item(icon,item): STATE["_toggle_timelapse"] = True
@@ -681,6 +746,7 @@ def start_tray(pet_ref):
         ),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("看今日报告", report_item),
+        pystray.MenuItem("查看延时摄影", view_timelapse_item),
         pystray.MenuItem("打开日志文件夹", logs_item),
         pystray.MenuItem("新手教程", onboarding_item),
         pystray.MenuItem("喝水提醒间隔", interval_menu),
@@ -691,7 +757,11 @@ def start_tray(pet_ref):
             checked=lambda i: STATE["center_nudge_enabled"],
         ),
         pystray.MenuItem("睁眼 / 收起画面", eyes_item),
-        pystray.MenuItem("暂停检测", pause_item, checked=lambda i: STATE["paused"]),
+        pystray.MenuItem(
+            "暂停 / 开始检测",
+            pause_item,
+            checked=lambda i:STATE["paused"] or STATE.get("camera_off",False),
+        ),
         pystray.MenuItem("开机自启", autostart_item, checked=lambda i: is_autostart_on()),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("退出", quit_item),
@@ -817,16 +887,18 @@ class Pet:
     def _release(s, e):
         if s._dragging or s._center_nudge_active: return
         x, y = s._click_xy
-        # 眼睛热区跟图片尺寸一起计算，换素材后不再依赖旧矢量坐标
-        eye_box = cat_sprites.eye_hitbox(s.W//2, s.CAT_BOTTOM, s.CAT_SPRITE_SIZE)
-        if eye_box[0] <= x <= eye_box[2] and eye_box[1] <= y <= eye_box[3]:
-            s.toggle_eyes(); return
         # 按钮
         for name,(x1,y1,x2,y2) in s._btn_boxes.items():
             if x1 <= x <= x2 and y1 <= y <= y2:
                 if name == "log": open_logs_folder()
                 elif name == "report": open_report()
                 return
+        if STATE.get("mode") in ("camera_off","paused"):
+            start_detection(); return
+        # 眼睛热区跟图片尺寸一起计算，换素材后不再依赖旧矢量坐标
+        eye_box = cat_sprites.eye_hitbox(s.W//2, s.CAT_BOTTOM, s.CAT_SPRITE_SIZE)
+        if eye_box[0] <= x <= eye_box[2] and eye_box[1] <= y <= eye_box[3]:
+            s.toggle_eyes(); return
 
     def _menu_close(s, e):
         m = tk.Menu(s.r, tearoff=0)
@@ -837,6 +909,7 @@ class Pet:
         )
         m.add_separator()
         m.add_command(label="看今日报告", command=open_report)
+        m.add_command(label="查看延时摄影", command=open_timelapse_folder)
         m.add_command(label="打开日志文件夹", command=open_logs_folder)
         m.add_command(label="新手教程", command=s.show_onboarding)
         reminder_menu=tk.Menu(m,tearoff=0)
@@ -866,8 +939,10 @@ class Pet:
             command=lambda:set_center_nudge_enabled(center_value.get()),
         )
         m.add_command(label="睁眼 / 收起画面", command=s.toggle_eyes)
-        m.add_command(label="暂停检测" if not STATE["paused"] else "恢复检测",
-                      command=lambda: STATE.update(paused=not STATE["paused"]))
+        m.add_command(
+            label="开始检测" if STATE["paused"] or STATE.get("camera_off") else "暂停检测",
+            command=toggle_detection,
+        )
         m.add_separator()
         m.add_command(label="退出盯盯喵", command=s._quit)
         try: m.tk_popup(e.x_root, e.y_root)
@@ -1197,6 +1272,7 @@ class Pet:
             "away":  "咦你去哪了 · " + dur(STATE["away"]),
             "over":  "坐太久啦 快起来动动!",
             "blocked":"喵…看不见了",
+            "camera_off":"摄像头已关闭 · 点击猫咪开始检测",
             "init":  "启动中…",
             "paused":"检测暂停中"
         }.get(mm, "准备好啦~")

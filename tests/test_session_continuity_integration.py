@@ -15,12 +15,13 @@ class SessionContinuityIntegrationTests(unittest.TestCase):
         self.assertIn("session_away_start=None", PET_SOURCE)
         self.assertIn('STATE["sit_session_start"]=None', PET_SOURCE)
 
-    def test_camera_read_failure_updates_away_state_instead_of_freezing_overdue(self):
+    def test_camera_read_failure_moves_from_away_to_manual_restart_without_freezing(self):
         failure_branch = PET_SOURCE.split("if not ok or fr is None:", 1)[1].split(
             "gray=cv2.cvtColor",
             1,
         )[0]
-        self.assertIn('mode="away"', failure_branch)
+        self.assertIn('mode="camera_off" if needs_restart else "away"', failure_branch)
+        self.assertIn("camera_needs_manual_restart", failure_branch)
         self.assertIn("session_gap_expired", failure_branch)
         self.assertIn('sit=kept_sit', failure_branch)
         self.assertIn('frame=None', failure_branch)

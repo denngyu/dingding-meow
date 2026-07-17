@@ -45,6 +45,11 @@ class SkinSystemTests(unittest.TestCase):
             self.assertGreater(coverage,0.08,key)
             self.assertLess(coverage,0.65,key)
 
+    def test_orange_away_pose_drops_the_adjacent_cell_fragment(self):
+        image = cat_sprites.load_sprite_images(skin_id="orange")["away"]
+        alpha = np.array(image.getchannel("A")) > 0
+        self.assertFalse(alpha[:, 130:].any())
+
     def test_orange_open_eye_pose_is_not_the_tailed_pose(self):
         images = cat_sprites.load_sprite_images(skin_id="orange")
         self.assertNotEqual(images["watch"].tobytes(), images["idle"].tobytes())

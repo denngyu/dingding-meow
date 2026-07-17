@@ -25,8 +25,10 @@ def compact_status(mode, sit_seconds=0, away_seconds=0, locked=False, water_nudg
         return "已离开 " + _compact_minutes(away_seconds)
     if mode == "blocked":
         return "镜头被挡住了"
+    if mode == "camera_off":
+        return "点击开始检测"
     if mode == "paused":
-        return "检测已暂停"
+        return "点击开始检测"
     return "启动中…"
 
 

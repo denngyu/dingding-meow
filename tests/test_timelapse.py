@@ -7,6 +7,9 @@ import numpy as np
 from timelapse import DEFAULT_TIMELAPSE_INTERVAL_SEC, TimelapseRecorder
 
 
+PET_SOURCE = (Path(__file__).resolve().parents[1] / "pet.py").read_text(encoding="utf-8")
+
+
 class FakeWriter:
     def __init__(self, path, opened=True):
         self.path = Path(path)
@@ -50,6 +53,11 @@ class FakeCV2:
 
 
 class TimelapseTests(unittest.TestCase):
+    def test_view_timelapse_is_available_from_context_and_tray_only(self):
+        self.assertNotIn('"timelapse":(', PET_SOURCE)
+        self.assertNotIn('elif name == "timelapse": open_timelapse_folder()', PET_SOURCE)
+        self.assertEqual(PET_SOURCE.count('"查看延时摄影"'), 2)
+
     def test_default_interval_is_one_minute(self):
         self.assertEqual(DEFAULT_TIMELAPSE_INTERVAL_SEC, 60)
 
