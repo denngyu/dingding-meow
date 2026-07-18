@@ -40,6 +40,12 @@ class WaterInputTests(unittest.TestCase):
         self.assertIn("def _drag_move(s,event):", source)
         self.assertIn('widget.bind("<B1-Motion>",s._drag_move)', source)
 
+    def test_dialog_focuses_the_amount_entry_after_becoming_visible(self):
+        source = (Path(__file__).resolve().parents[1] / "pet.py").read_text(encoding="utf-8")
+        self.assertIn("t.wait_visibility()", source)
+        self.assertIn("s.e.focus_force()", source)
+        self.assertIn("t.after(120,focus_entry)", source)
+
     def test_dialog_uses_generous_rounded_corners(self):
         self.assertGreaterEqual(WATER_DIALOG_RADIUS, 22)
         self.assertGreaterEqual(WATER_PRESET_RADIUS, 12)

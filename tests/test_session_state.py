@@ -1,6 +1,13 @@
 import unittest
+from unittest.mock import patch
 
-from session_state import SESSION_RESUME_SEC, is_present, is_session_locked, session_gap_expired
+from session_state import (
+    SESSION_RESUME_SEC,
+    is_present,
+    is_session_locked,
+    session_end_time,
+    session_gap_expired,
+)
 
 
 class FakeUser32:
@@ -29,6 +36,50 @@ class SessionStateTests(unittest.TestCase):
 
     def test_lock_ends_session_immediately(self):
         self.assertTrue(session_gap_expired(100.0, 101.0, locked=True))
+
+    def test_lock_ends_a_pending_session_even_after_mode_changed_to_away(self):
+        self.assertEqual(
+            session_end_time(
+                sit_start=100.0,
+                away_since=120.0,
+                now=121.0,
+                locked=True,
+            ),
+            121.0,
+        )
+
+    def test_short_unlocked_gap_keeps_the_pending_session(self):
+        self.assertIsNone(
+            session_end_time(
+                sit_start=100.0,
+                away_since=120.0,
+                now=121.0,
+                locked=False,
+            )
+        )
+
+    def test_wts_lock_state_takes_priority_over_desktop_switch_fallback(self):
+        with patch("session_state.query_wts_session_lock_state", return_value=True):
+            self.assertTrue(
+                is_session_locked(
+                    user32=FakeUser32(handle=123, switchable=True),
+                    platform_name="nt",
+                    prefer_wts=True,
+                )
+            )
+
+    def test_desktop_switch_fallback_is_used_when_wts_query_is_unknown(self):
+        user32 = FakeUser32(handle=123, switchable=False)
+        with patch("session_state.query_wts_session_lock_state", return_value=None):
+            self.assertTrue(
+                is_session_locked(
+                    user32=user32,
+                    platform_name="nt",
+                    prefer_wts=True,
+                )
+            )
+        self.assertEqual(user32.switched, [123])
+        self.assertEqual(user32.closed, [123])
 
     def test_open_input_desktop_means_unlocked(self):
         user32 = FakeUser32(handle=123, switchable=True)

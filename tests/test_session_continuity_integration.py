@@ -12,8 +12,14 @@ class SessionContinuityIntegrationTests(unittest.TestCase):
         self.assertIn("SESSION_RESUME_SEC", PET_SOURCE)
 
     def test_lock_still_clears_the_pending_session_immediately(self):
-        self.assertIn("session_away_start=None", PET_SOURCE)
-        self.assertIn('STATE["sit_session_start"]=None', PET_SOURCE)
+        lock_branch = PET_SOURCE.split("camera.set_locked(locked,now)", 1)[1].split(
+            'STATE["locked"]=False',
+            1,
+        )[0]
+        self.assertIn("session_end_time", lock_branch)
+        self.assertNotIn('prev_mode in ("seated","over")', lock_branch)
+        self.assertIn("session_away_start=None", lock_branch)
+        self.assertIn('STATE["sit_session_start"]=None', lock_branch)
 
     def test_camera_read_failure_moves_from_away_to_manual_restart_without_freezing(self):
         failure_branch = PET_SOURCE.split("if not ok or fr is None:", 1)[1].split(

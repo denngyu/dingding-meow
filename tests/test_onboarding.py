@@ -3,10 +3,21 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from onboarding import ONBOARDING_STEPS, ONBOARDING_VERSION, mark_onboarding_seen, should_show_onboarding
+from onboarding import (
+    ONBOARDING_STEPS,
+    ONBOARDING_VERSION,
+    mark_onboarding_seen,
+    onboarding_icon_path,
+    should_show_onboarding,
+)
 
 
 class OnboardingTests(unittest.TestCase):
+    def test_tutorial_uses_the_dingdingmeow_window_icon(self):
+        icon_path = onboarding_icon_path()
+        self.assertEqual(icon_path.name, "dingdingmeow.ico")
+        self.assertTrue(icon_path.is_file())
+
     def test_tutorial_has_three_short_practical_steps(self):
         self.assertEqual(len(ONBOARDING_STEPS), 3)
         combined = " ".join(title + " " + body for title, body in ONBOARDING_STEPS)

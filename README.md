@@ -2,7 +2,7 @@
 
 > 一只桌面小猫，用你自己的摄像头替你盯健康。100% 本地跑，画面一帧都不上传。
 
-[![Download](https://img.shields.io/badge/download-v1.5.1-C15A34)](https://github.com/denngyu/dingding-meow/releases/latest)
+[![Download](https://img.shields.io/badge/download-v1.5.2-C15A34)](https://github.com/denngyu/dingding-meow/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-1A1B18)](LICENSE)
 [![Local-only](https://img.shields.io/badge/local--only-0%20network-2F6E54)](#)
 
@@ -81,7 +81,7 @@ python pet.py
 ├── 盯盯喵.bat           备用启动
 ├── index.html           宣传页（同 GitHub Pages 上那个）
 ├── onepage.html         一张图讲清全部功能
-├── 交接文档.md          v1.5.0 详细技术交接
+├── 交接文档.md          v1.5.2 详细技术交接
 ├── 项目复盘.md          从想法到落地的踩坑记录
 ├── CLAUDE.md            项目规范
 └── error_log.md         严重错误档案
@@ -99,7 +99,8 @@ pyinstaller --onefile --windowed --name 盯盯喵 \
 
 ## 版本历史
 
-- **v1.5.1 · 2026-07-16** — 摄像头无信号进入 camera_off 可点击恢复、菜单加「查看延时摄影」、饮水框加高到 420px 可拖动、快捷档改为一口 50 / 一大口 100 / 半杯 150 / 一杯 300
+- **v1.5.2 · 2026-07-17** — 锁屏结算修复：优先用 WTS 会话状态判断锁屏，摄像头先断帧也立即结算久坐，不再把锁屏走成普通离开
+- v1.5.1 · 2026-07-16 — 摄像头无信号进入 camera_off 可点击恢复、菜单加「查看延时摄影」、饮水框加高到 420px 可拖动、快捷档改为一口 50 / 一大口 100 / 半杯 150 / 一杯 300
 - v1.5.0 · 2026-07-16 — 延时摄影（默认关，手动开）、猫咪皮肤（银灰经典 / 暖橘元气）、饮水降误报、圆角饮水框、锁屏后摄像头自动恢复
 - v1.4.0 · 2026-07-16 — 水平毛球滚动、中央叩屏三次、锁屏立即离开、30 秒会话续接、柜子误判收敛、饮水误判可关闭
 - v1.0.1 · 2026-07-15 — 手动记录喝水、多屏切单屏自动归位、图标统一

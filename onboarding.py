@@ -1,5 +1,7 @@
 """First-run tutorial state and the small three-step onboarding window."""
 
+from pathlib import Path
+import sys
 import tkinter as tk
 
 from settings_store import read_settings, update_settings
@@ -30,6 +32,25 @@ ONBOARDING_STEPS = (
         "托盘菜单里的“新手教程”：随时再看一遍。",
     ),
 )
+
+
+def onboarding_icon_path():
+    if getattr(sys, "frozen", False):
+        root = Path(sys.executable).resolve().parent
+    else:
+        root = Path(__file__).resolve().parent
+    return root / "assets" / "dingdingmeow.ico"
+
+
+def set_onboarding_icon(window):
+    icon_path = onboarding_icon_path()
+    if not icon_path.is_file():
+        return False
+    try:
+        window.iconbitmap(str(icon_path))
+    except tk.TclError:
+        return False
+    return True
 
 
 def should_show_onboarding(path):
@@ -148,6 +169,7 @@ def show_onboarding(parent, settings_path, on_close=None):
     }
     window = tk.Toplevel(parent)
     window.title("欢迎使用盯盯喵")
+    set_onboarding_icon(window)
     window.configure(bg=palette["paper"])
     window.resizable(False, False)
     window.transient(parent)

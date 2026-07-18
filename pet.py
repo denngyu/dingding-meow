@@ -21,7 +21,13 @@ from cup_detection import (
 from face_detection import detect_face_boxes, load_face_cascades
 from onboarding import should_show_onboarding, show_onboarding as open_onboarding
 from report_icon import report_favicon_link
-from session_state import SESSION_RESUME_SEC, is_present, is_session_locked, session_gap_expired
+from session_state import (
+    SESSION_RESUME_SEC,
+    is_present,
+    is_session_locked,
+    session_end_time,
+    session_gap_expired,
+)
 from status_label import render_status_label
 from ui_behavior import compact_status, detail_bubble_top, pointer_keeps_details_open, status_label_y, video_bubble_top
 from water_input import (
@@ -210,8 +216,14 @@ def loop():
         camera.set_locked(locked,now)
         if locked:
             read_failures=no_signal_frames=0
-            if prev_mode in ("seated","over") and sit_start is not None:
-                slog_write(sit_start,now,STATE["over_flag"])
+            lock_end=session_end_time(
+                sit_start,
+                session_away_start,
+                now,
+                locked=True,
+            )
+            if sit_start is not None and lock_end is not None:
+                slog_write(sit_start,lock_end,STATE["over_flag"])
             sit_start=None; session_away_start=None; last_seen=None; was_drinking=False; STATE["cup_hits"]=0
             STATE["sit_session_start"]=None
             if away_start is None: away_start=now
@@ -513,8 +525,26 @@ class WaterDialog:
         s.e.bind("<KP_Enter>",lambda e:s._c())
         s.e.bind("<Escape>",lambda e:s._cancel())
         t.bind("<Escape>",lambda e:s._cancel())
+
+        def focus_entry():
+            try:
+                if not t.winfo_exists() or t.focus_get() is s.e:
+                    return
+                t.lift()
+                t.focus_force()
+                s.e.focus_force()
+                if not s.e.get():
+                    s.e.selection_range(0,"end")
+            except tk.TclError:
+                pass
+
+        try:
+            t.wait_visibility()
+        except tk.TclError:
+            pass
         t.grab_set()
-        t.after_idle(lambda:(s.e.focus_force(),s.e.selection_range(0,"end")))
+        focus_entry()
+        t.after(120,focus_entry)
         parent.wait_window(t)
     def _choose(s,value):
         s.val=value
@@ -640,7 +670,7 @@ footer{{margin-top:40px;color:var(--ink3);font-size:12px;text-align:center}}
 <div class="chart">{svg_bar(water_by_day, target=WATER_TARGET_ML, unit="ml")}</div>
 
 <h2>近 7 天坐时长</h2>
-<div class="chart">{svg_bar(sit_by_day, target=int(SIT_LIMIT_MIN*6), unit="分")}</div>
+<div class="chart">{svg_bar(sit_by_day, unit="分")}</div>
 
 <div class="grid2">
   <div><h2>今日饮水明细</h2><table><thead><tr><th>时间</th><th>量</th></tr></thead><tbody>{water_rows}</tbody></table></div>
